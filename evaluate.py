@@ -12,20 +12,25 @@ import utils
 np.set_printoptions(4)
 
 
-def main(vis=False):
+def main(vis=True):
     env = Environment()
     nominal_controller = NominalController()
+
     nn_controller = NNController(n_state=4, k_obstacle=8, m_control=2)
+    nn_controller.load_state_dict(torch.load('./data/controller_weights.pth'))
+    nn_controller.eval()
+
     cbf = CBF(n_state=4, k_obstacle=8, m_control=2)
-    dataset = Dataset(n_state=4, k_obstacle=8, m_control=2, n_pos=2)
-    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=2)
+    cbf.load_state_dict(torch.load('./data/cbf_weights.pth'))
+    cbf.eval()
+
     state, obstacle, goal = env.reset()
 
     if vis:
         plt.ion()
         fig = plt.figure(figsize=(10, 10))
-        plt.xlim(0, 10)
-        plt.ylim(0, 10)
+        plt.xlim(0, 20)
+        plt.ylim(0, 20)
         plt.scatter(env.obstacle[:, 0], env.obstacle[:, 1], color='grey')
 
     safety_rate = 0.0
@@ -39,40 +44,28 @@ def main(vis=False):
         u = np.squeeze(u.detach().cpu().numpy())
         state_next, obstacle_next, goal_next, done = env.step(u)
 
-        dataset.add_data(state, obstacle, u_nominal, state_next)
-
         is_safe = int(utils.is_safe(state, obstacle, n_pos=2, dang_dist=0.6))
-        safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
+        safety_rate = safety_rate * i / (i+1) + is_safe * 1.0 / (i+1)
 
         state = state_next
         obstacle = obstacle_next
         goal = goal_next
 
-        if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
-            if np.mod(i // config.POLICY_UPDATE_INTERVAL, 2) == 0:
-                loss_np, acc_np = trainer.train_cbf()
-                print('step: {}, train h, loss: {:.3f}, safety rate: {:.3f}, acc: {}'.format(i, loss_np, safety_rate, acc_np))
-                torch.save(cbf.state_dict(), './data/cbf_weights.pth')
-
-            elif np.mod(i // config.POLICY_UPDATE_INTERVAL, 2) == 1:
-                loss_np, acc_np = trainer.train_controller()
-                print('step: {}, train u, loss: {:.3f}, safety rate: {:.3f}, acc: {}'.format(i, loss_np, safety_rate, acc_np))
-                torch.save(nn_controller.state_dict(), './data/controller_weights.pth')
-
         if done:
             state, obstacle, goal = env.reset()
+            print('safety rate: {:.4f}'.format(safety_rate))
 
         if vis and done:
             plt.clf()
-            plt.xlim(0, 10)
-            plt.ylim(0, 10)
+            plt.xlim(0, 20)
+            plt.ylim(0, 20)
             plt.scatter(env.obstacle[:, 0], env.obstacle[:, 1], color='grey')
 
         if vis and np.mod(i, 10) == 0:
             plt.scatter(state[0], state[1], color='darkred')
             plt.scatter(goal[0], goal[1], color='darkorange')
+            if not is_safe:
+                plt.scatter(state[0], state[1], color='darkblue')
             fig.canvas.draw()
             plt.pause(0.01)
-
-
 main()

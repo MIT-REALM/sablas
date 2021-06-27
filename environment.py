@@ -4,13 +4,14 @@ import torch
 
 class Environment(object):
 
-    def __init__(self, dt=0.1, k_obstacle=8, total_obstacle=10, env_size=10, safe_dist=1, max_steps=200):
+    def __init__(self, dt=0.1, k_obstacle=8, total_obstacle=10, env_size=20, safe_dist=1, max_steps=200, max_speed=0.5):
         self.dt = dt
         self.k_obstacle = k_obstacle
         self.total_obstacle = total_obstacle
         self.env_size = env_size
         self.safe_dist = safe_dist
         self.max_steps = max_steps
+        self.max_speed = max_speed
 
     def reset(self):
         self.obstacle = np.random.uniform(
@@ -32,6 +33,7 @@ class Environment(object):
     def step(self, u):
         dsdt = self.uncertain_dynamics(self.state, u)
         state = self.state + dsdt * self.dt
+        state[2:] = np.clip(state[2:], -self.max_speed, self.max_speed)
         obstacle = self.get_obstacle(state)
         goal = self.get_goal(state)
         self.state = state
