@@ -38,7 +38,12 @@ def main(vis=False):
             torch.from_numpy(u_nominal.reshape(1, 2).astype(np.float32)))
         u = np.squeeze(u.detach().cpu().numpy())
         state_next, obstacle_next, goal_next, done = env.step(u)
-        dataset.add_data(state, obstacle, u_nominal, state_next)
+
+        if np.amin(np.linalg.norm(obstacle[:, :2] - state[:2], axis=1)) < 0.8:
+            dataset.add_data(state, obstacle, u_nominal, state_next)
+        else:
+            if np.random.uniform() < 0.3:
+                dataset.add_data(state, obstacle, u_nominal, state_next)
 
         is_safe = int(utils.is_safe(state, obstacle, n_pos=2, dang_dist=0.6))
         safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
