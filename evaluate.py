@@ -3,10 +3,9 @@ import torch
 import config
 from environment import Environment
 from dataset import Dataset
-from controller import NominalController, NNController
 import matplotlib.pyplot as plt
 from trainer import Trainer
-from cbf import CBF
+from network import CBF, NNController
 import utils
 
 np.set_printoptions(4)
@@ -14,7 +13,7 @@ np.set_printoptions(4)
 
 def main(vis=True):
     env = Environment()
-    nominal_controller = NominalController()
+    #nominal_controller = env.nominal_controller
 
     nn_controller = NNController(n_state=4, k_obstacle=8, m_control=2)
     nn_controller.load_state_dict(torch.load('./data/controller_weights.pth'))
@@ -36,7 +35,7 @@ def main(vis=True):
     safety_rate = 0.0
 
     for i in range(config.TRAIN_STEPS):
-        u_nominal = nominal_controller(state, goal)
+        u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
             torch.from_numpy(state.reshape(1, 4).astype(np.float32)), 
             torch.from_numpy(obstacle.reshape(1, 8, 4).astype(np.float32)),

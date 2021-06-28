@@ -3,10 +3,9 @@ import torch
 import config
 from environment import Environment
 from dataset import Dataset
-from controller import NominalController, NNController
 import matplotlib.pyplot as plt
 from trainer import Trainer
-from cbf import CBF
+from network import CBF, NNController
 import utils
 
 np.set_printoptions(4)
@@ -14,7 +13,7 @@ np.set_printoptions(4)
 
 def main(vis=False):
     env = Environment()
-    nominal_controller = NominalController()
+    nominal_controller = env.nominal_controller
     nn_controller = NNController(n_state=4, k_obstacle=8, m_control=2)
     cbf = CBF(n_state=4, k_obstacle=8, m_control=2)
     dataset = Dataset(n_state=4, k_obstacle=8, m_control=2, n_pos=2)

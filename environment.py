@@ -56,6 +56,21 @@ class Environment(object):
         dsdt = torch.cat([state[:, 2:], u], dim=1)
         return dsdt
 
+    def nominal_controller(self, state, goal, u_norm_max=0.5):
+        """
+        args:
+            state (n_state,)
+            goal (n_state,)
+        returns:
+            u_nominal (m_control,)
+        """
+        K = np.array([[1, 0, 3, 0], [0, 1, 0, 3]])
+        u_nominal = -K.dot(state - goal)
+        norm = np.linalg.norm(u_nominal)
+        if norm > u_norm_max:
+            u_nominal = u_nominal / norm * u_norm_max
+        return u_nominal
+
     def get_obstacle(self, state):
         dist = np.linalg.norm(self.obstacle - state[:2], axis=1)
         argsort = np.argsort(dist)[:self.k_obstacle]
