@@ -1,10 +1,20 @@
 import numpy as np
 import torch
+import control
 
 
 class Drone(object):
 
-    def __init__(self, dt=0.1, k_obstacle=8, total_obstacle=500, env_size=20, safe_dist=1, max_steps=500, max_speed=0.5, max_theta=np.pi/6):
+    def __init__(self, 
+                 dt=0.1, 
+                 k_obstacle=8, 
+                 total_obstacle=500, 
+                 env_size=20, 
+                 safe_dist=1, 
+                 max_steps=500, 
+                 max_speed=0.5, 
+                 max_theta=np.pi/6,
+                 noise_std=0):
         assert total_obstacle >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
@@ -14,6 +24,43 @@ class Drone(object):
         self.max_steps = max_steps
         self.max_speed = max_speed
         self.max_theta = max_theta
+        self.noise_std = noise_std
+
+        self.A_nominal = [[0, 0, 0, 1, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 1, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 1, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 1, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 1],
+                          [0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0]]
+        self.A_real = [[0, 0, 0, 1, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 1, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0]]
+        self.B_nominal = [[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 1],
+                          [1, 0, 0],
+                          [0, 1, 0]]
+        self.B_real = [[0, 0, 0],
+                       [0, 0, 0],
+                       [0, 0, 0],
+                       [0, 0, 0],
+                       [0, 0, 0],
+                       [0, 0, 1],
+                       [1, 0, 0],
+                       [0, 1, 0]]
+        self.K = self.get_K()
+        self.noise = np.random.normal(size=(8,)) * self.noise_std
+        
         
     def reset(self):
         self.obstacle = np.random.uniform(
@@ -34,15 +81,22 @@ class Drone(object):
 
     def step(self, u):
         dsdt = self.uncertain_dynamics(self.state, u)
-        state = self.state + dsdt * self.dt
+        noise = self.get_noise()
+        state = self.state + (dsdt + noise) * self.dt
         state[3:6] = np.clip(state[3:6], -self.max_speed, self.max_speed)
         state[6:] = np.clip(state[6:], -self.max_theta, self.max_theta)
+
+        dsdt_nominal = self.nominal_dynamics(self.state, u)
+        state_nominal = self.state + dsdt_nominal * self.dt
+        state_nominal[3:6] = np.clip(state_nominal[3:6], -self.max_speed, self.max_speed)
+        state_nominal[6:] = np.clip(state_nominal[6:], -self.max_theta, self.max_theta)
+
         obstacle = self.get_obstacle(state)
         goal = self.get_goal(state)
         self.state = state
         done = np.linalg.norm(state[:3] - goal[:3]) < self.safe_dist or self.num_steps > self.max_steps
         self.num_steps = self.num_steps + 1
-        return state, obstacle, goal, done
+        return state, state_nominal, obstacle, goal, done
 
     def uncertain_dynamics(self, state, u):
         """
@@ -52,25 +106,22 @@ class Drone(object):
         returns:
             dsdt (n_state,)
         """
-        A = [[0, 0, 0, 1, 0, 0, 0, 0],
-             [0, 0, 0, 0, 1, 0, 0, 0],
-             [0, 0, 0, 0, 0, 1, 0, 0],
-             [0, 0, 0, 0, 0, 0, 1, 0],
-             [0, 0, 0, 0, 0, 0, 0, 1],
-             [0, 0, 0, 0, 0, 0, 0, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0]]
-        A = np.array(A, dtype=np.float32)
+        A = np.array(self.A_real, dtype=np.float32)
+        B = np.array(self.B_real, dtype=np.float32)
+        dsdt = A.dot(state) + B.dot(u)
 
-        B = [[0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 1],
-             [1, 0, 0],
-             [0, 1, 0]]
-        B = np.array(B, dtype=np.float32)
+        return dsdt
+
+    def nominal_dynamics(self, state, u):
+        """
+        args:
+            state (n_state,)
+            u (m_control,)
+        returns:
+            dsdt (n_state,)
+        """
+        A = np.array(self.A_nominal, dtype=np.float32)
+        B = np.array(self.B_nominal, dtype=np.float32)
         dsdt = A.dot(state) + B.dot(u)
 
         return dsdt
@@ -83,26 +134,10 @@ class Drone(object):
         returns:
             dsdt (bs, n_state)
         """
-        A = [[0, 0, 0, 1, 0, 0, 0, 0],
-             [0, 0, 0, 0, 1, 0, 0, 0],
-             [0, 0, 0, 0, 0, 1, 0, 0],
-             [0, 0, 0, 0, 0, 0, 1, 0],
-             [0, 0, 0, 0, 0, 0, 0, 1],
-             [0, 0, 0, 0, 0, 0, 0, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0],
-             [0, 0, 0, 0, 0, 0, 0, 0]]
-        A = np.array(A, dtype=np.float32)
+        A = np.array(self.A_nominal, dtype=np.float32)
         A_T = torch.from_numpy(A.T)
 
-        B = [[0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 0],
-             [0, 0, 1],
-             [1, 0, 0],
-             [0, 1, 0]]
-        B = np.array(B, dtype=np.float32)
+        B = np.array(self.B_nominal, dtype=np.float32)
         B_T = torch.from_numpy(B.T)
 
         dsdt = torch.matmul(state, A_T) + torch.matmul(u, B_T)
@@ -117,9 +152,7 @@ class Drone(object):
         returns:
             u_nominal (m_control,)
         """
-        K = np.array([[1, 0, 0, 3, 0, 0, 3, 0],
-             [0, 1, 0, 0, 3, 0, 0, 3],
-             [0, 0, 1, 0, 0, 3, 0, 0]])
+        K = self.K
         u_nominal = -K.dot(state - goal)
         norm = np.linalg.norm(u_nominal)
         if norm > u_norm_max:
@@ -141,6 +174,17 @@ class Drone(object):
 
     def get_goal(self, state):
         return self.goal
+
+    def get_K(self, state=None):
+        Q = np.eye(8)
+        R = np.eye(3)
+        K, _, _ = control.lqr(self.A_real, self.B_real, Q, R)
+        return K
+
+    def get_noise(self):
+        if np.random.uniform() < 0.05:
+            self.noise = np.random.normal(size=(8,)) * self.noise_std
+        return self.noise
 
 
 if __name__ == '__main__':

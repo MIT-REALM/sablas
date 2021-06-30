@@ -28,7 +28,7 @@ class Trainer(object):
         for i in range(opt_iter):
             # state (bs, n_state), obstacle (bs, k_obstacle, n_state)
             # u_nominal (bs, m_control), state_next (bs, n_state)
-            state, obstacle, u_nominal, state_next = self.dataset.sample_data(batch_size)
+            state, obstacle, u_nominal, state_next, state_error = self.dataset.sample_data(batch_size)
             state = torch.from_numpy(state)
             obstacle = torch.from_numpy(obstacle)
             state_next = torch.from_numpy(state_next)
@@ -86,17 +86,18 @@ class Trainer(object):
         for i in range(opt_iter):
             # state (bs, n_state), obstacle (bs, k_obstacle, n_state)
             # u_nominal (bs, m_control), state_next (bs, n_state)
-            state, obstacle, u_nominal, state_next = self.dataset.sample_data(batch_size)
+            state, obstacle, u_nominal, state_next, state_error = self.dataset.sample_data(batch_size)
             state = torch.from_numpy(state)
             obstacle = torch.from_numpy(obstacle)
             u_nominal = torch.from_numpy(u_nominal)
             state_next = torch.from_numpy(state_next)
+            state_error = torch.from_numpy(state_error)
 
             safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
 
             h = self.cbf(state, obstacle)
 
-            u = self.controller(state, obstacle, u_nominal)
+            u = self.controller(state, obstacle, u_nominal, state_error)
             dsdt_nominal = self.nominal_dynamics(state, u)
             state_next_nominal = state + dsdt_nominal * self.dt
 

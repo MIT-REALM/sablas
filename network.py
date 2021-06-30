@@ -51,18 +51,19 @@ class NNController(nn.Module):
         self.conv0 = nn.Conv1d(n_state, 64, 1)
         self.conv1 = nn.Conv1d(64, 128, 1)
         self.conv2 = nn.Conv1d(128, 128, 1)
-        self.fc0 = nn.Linear(128 + m_control, 128)
+        self.fc0 = nn.Linear(128 + m_control + n_state, 128)
         self.fc1 = nn.Linear(128, 64)
         self.fc2 = nn.Linear(64, m_control)
         self.activation = nn.ReLU()
         self.output_activation = nn.Tanh()
 
-    def forward(self, state, obstacle, u_nominal):
+    def forward(self, state, obstacle, u_nominal, state_error):
         """
         args:
             state (bs, n_state)
             obstacle (bs, k_obstacle, n_state)
             u_nominal (bs, m_control)
+            state_error (bs, n_state)
         returns:
             u (bs, m_control)
         """
@@ -73,7 +74,7 @@ class NNController(nn.Module):
         x = self.activation(self.conv1(x))
         x = self.activation(self.conv2(x))   # (bs, 128, k_obstacle)
         x, _ = torch.max(x, dim=2)              # (bs, 128)
-        x = torch.cat([x, u_nominal], dim=1) # (bs, 128 + m_control)
+        x = torch.cat([x, u_nominal, state_error], dim=1) # (bs, 128 + m_control)
         x = self.activation(self.fc0(x))
         x = self.activation(self.fc1(x))
         x = self.output_activation(self.fc2(x))

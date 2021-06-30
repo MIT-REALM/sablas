@@ -15,7 +15,7 @@ class Dataset(object):
         self.buffer_dang = []
         self.buffer_mid = []
 
-    def add_data(self, state, obstacle, u_nominal, state_next):
+    def add_data(self, state, obstacle, u_nominal, state_next, state_error):
         """
         args:
             state (n_state,): state of the agent
@@ -26,7 +26,8 @@ class Dataset(object):
         dist = np.linalg.norm(obstacle[:, :self.n_pos] - state[:self.n_pos], axis=1)
         min_dist = np.amin(dist)
         data = [np.copy(state).astype(np.float32), np.copy(obstacle).astype(np.float32), 
-                np.copy(u_nominal).astype(np.float32), np.copy(state_next).astype(np.float32)]
+                np.copy(u_nominal).astype(np.float32), np.copy(state_next).astype(np.float32),
+                np.copy(state_error).astype(np.float32)]
         if min_dist < self.dang_dist:
             self.buffer_dang.append(data)
             self.buffer_dang = self.buffer_dang[-self.buffer_size:]
@@ -42,16 +43,17 @@ class Dataset(object):
         num_dang = batch_size // 3
         num_mid = batch_size - num_safe - num_dang
 
-        s_safe, o_safe, u_safe, s_next_safe = self.sample_data_from_buffer(num_safe, self.buffer_safe)
-        s_dang, o_dang, u_dang, s_next_dang = self.sample_data_from_buffer(num_dang, self.buffer_dang)
-        s_mid, o_mid, u_mid, s_next_mid = self.sample_data_from_buffer(num_mid, self.buffer_mid)
+        s_safe, o_safe, u_safe, s_next_safe, e_safe = self.sample_data_from_buffer(num_safe, self.buffer_safe)
+        s_dang, o_dang, u_dang, s_next_dang, e_dang = self.sample_data_from_buffer(num_dang, self.buffer_dang)
+        s_mid, o_mid, u_mid, s_next_mid, e_mid = self.sample_data_from_buffer(num_mid, self.buffer_mid)
 
         s = np.concatenate([s_safe, s_dang, s_mid], axis=0)
         o = np.concatenate([o_safe, o_dang, o_mid], axis=0)
         u = np.concatenate([u_safe, u_dang, u_mid], axis=0)
         s_next = np.concatenate([s_next_safe, s_next_dang, s_next_mid], axis=0)
+        e = np.concatenate([e_safe, e_dang, e_mid], axis=0)
 
-        return s, o, u, s_next
+        return s, o, u, s_next, e
 
     def sample_data_from_buffer(self, batch_size, buffer):
         indices = np.random.randint(len(buffer), size=(batch_size))
@@ -59,10 +61,12 @@ class Dataset(object):
         o = np.zeros((batch_size, self.k_obstacle, self.n_state), dtype=np.float32)
         u = np.zeros((batch_size, self.m_control), dtype=np.float32)
         s_next = np.zeros((batch_size, self.n_state), dtype=np.float32)
+        e = np.zeros((batch_size, self.n_state), dtype=np.float32)
         for i, ind in enumerate(indices):
-            state, obstacle, u_nominal, state_next = buffer[ind]
+            state, obstacle, u_nominal, state_next, state_error = buffer[ind]
             s[i] = state
             o[i] = obstacle
             u[i] = u_nominal
             s_next[i] = state_next
-        return s, o, u, s_next
+            e[i] = state_error
+        return s, o, u, s_next, e

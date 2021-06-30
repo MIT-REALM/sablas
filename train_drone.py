@@ -20,22 +20,31 @@ def main(vis=False):
     trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=3)
     state, obstacle, goal = env.reset()
 
+    state_error = np.zeros((8,), dtype=np.float32)
+
     safety_rate = 0.0
     goal_reached = 0.0
+
+    dt = 0.1
 
     for i in range(config.TRAIN_STEPS):
         u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
             torch.from_numpy(state.reshape(1, 8).astype(np.float32)), 
             torch.from_numpy(obstacle.reshape(1, 8, 8).astype(np.float32)),
-            torch.from_numpy(u_nominal.reshape(1, 3).astype(np.float32)))
+            torch.from_numpy(u_nominal.reshape(1, 3).astype(np.float32)),
+            torch.from_numpy(state_error.reshape(1, 8).astype(np.float32)))
         u = np.squeeze(u.detach().cpu().numpy())
-        state_next, obstacle_next, goal_next, done = env.step(u)
+        state_next, state_nominal_next, obstacle_next, goal_next, done = env.step(u)
 
-        dataset.add_data(state, obstacle, u_nominal, state_next)
+        dataset.add_data(state, obstacle, u_nominal, state_next, state_error)
 
         is_safe = int(utils.is_safe(state, obstacle, n_pos=3, dang_dist=0.6))
         safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
+
+        # error between the true current state and the state obtained from the nominal model
+        # this error will be fed to the controller network in the next timestep
+        state_error = (state_next - state_nominal_next) / dt
 
         state = state_next
         obstacle = obstacle_next
