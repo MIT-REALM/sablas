@@ -1,7 +1,7 @@
 import numpy as np 
 import torch
 import config
-from environment import Environment
+from env_dicar import DoubleIntegrator
 from dataset import Dataset
 import matplotlib.pyplot as plt
 from trainer import Trainer
@@ -12,9 +12,8 @@ np.set_printoptions(4)
 
 
 def main(vis=True):
-    env = Environment()
-    #nominal_controller = env.nominal_controller
-
+    env = DoubleIntegrator()
+    
     nn_controller = NNController(n_state=4, k_obstacle=8, m_control=2)
     nn_controller.load_state_dict(torch.load('./data/controller_weights.pth'))
     nn_controller.eval()
@@ -30,7 +29,7 @@ def main(vis=True):
         fig = plt.figure(figsize=(10, 10))
         plt.xlim(0, 20)
         plt.ylim(0, 20)
-        plt.scatter(env.obstacle[:, 0], env.obstacle[:, 1], color='grey')
+        plt.scatter(env.obstacle[:, 0], env.obstacle[:, 1], color='grey', s=300)
 
     safety_rate = 0.0
 
@@ -58,11 +57,11 @@ def main(vis=True):
             plt.clf()
             plt.xlim(0, 20)
             plt.ylim(0, 20)
-            plt.scatter(env.obstacle[:, 0], env.obstacle[:, 1], color='grey')
+            plt.scatter(env.obstacle[:, 0], env.obstacle[:, 1], color='grey', s=300)
 
         if vis and np.mod(i, 10) == 0:
             plt.scatter(state[0], state[1], color='darkred')
-            plt.scatter(goal[0], goal[1], color='darkorange')
+            plt.scatter(goal[0], goal[1], color='darkorange', s=300)
             if not is_safe:
                 plt.scatter(state[0], state[1], color='darkblue')
             fig.canvas.draw()

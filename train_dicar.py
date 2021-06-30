@@ -1,7 +1,7 @@
 import numpy as np 
 import torch
 import config
-from environment import Environment
+from env_dicar import DoubleIntegrator
 from dataset import Dataset
 import matplotlib.pyplot as plt
 from trainer import Trainer
@@ -12,8 +12,8 @@ np.set_printoptions(4)
 
 
 def main(vis=False):
-    env = Environment()
-    nominal_controller = env.nominal_controller
+    env = DoubleIntegrator()
+
     nn_controller = NNController(n_state=4, k_obstacle=8, m_control=2)
     cbf = CBF(n_state=4, k_obstacle=8, m_control=2)
     dataset = Dataset(n_state=4, k_obstacle=8, m_control=2, n_pos=2)
@@ -30,7 +30,7 @@ def main(vis=False):
     safety_rate = 0.0
 
     for i in range(config.TRAIN_STEPS):
-        u_nominal = nominal_controller(state, goal)
+        u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
             torch.from_numpy(state.reshape(1, 4).astype(np.float32)), 
             torch.from_numpy(obstacle.reshape(1, 8, 4).astype(np.float32)),

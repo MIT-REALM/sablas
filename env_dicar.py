@@ -2,9 +2,10 @@ import numpy as np
 import torch
 
 
-class Environment(object):
+class DoubleIntegrator(object):
 
-    def __init__(self, dt=0.1, k_obstacle=8, total_obstacle=10, env_size=20, safe_dist=1, max_steps=200, max_speed=0.5):
+    def __init__(self, dt=0.1, k_obstacle=8, total_obstacle=10, env_size=20, safe_dist=1, max_steps=300, max_speed=0.5):
+        assert total_obstacle >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
         self.total_obstacle = total_obstacle
@@ -42,6 +43,13 @@ class Environment(object):
         return state, obstacle, goal, done
 
     def uncertain_dynamics(self, state, u):
+        """
+        args:
+            state (n_state,)
+            u (m_control,)
+        returns:
+            dsdt (n_state,)
+        """
         dsdt = np.concatenate([state[2:], u])
         return dsdt
 
@@ -72,6 +80,12 @@ class Environment(object):
         return u_nominal
 
     def get_obstacle(self, state):
+        """
+        args:
+            state (n_state,)
+        returns:
+            obstacle (k_obstacle, n_state)
+        """
         dist = np.linalg.norm(self.obstacle - state[:2], axis=1)
         argsort = np.argsort(dist)[:self.k_obstacle]
         obstacle = self.obstacle[argsort]
@@ -85,7 +99,7 @@ class Environment(object):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    env = Environment()
+    env = DoubleIntegrator()
     plt.figure(figsize=(10, 10))
     plt.xlim(0, 10)
     plt.ylim(0, 10)
