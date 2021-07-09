@@ -120,7 +120,7 @@ class Trainer(object):
 
             loss_action = torch.mean((u - u_nominal)**2)
 
-            loss = loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * 0.1
+            loss = loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * 0.08
 
             self.controller_optimizer.zero_grad()
             loss.backward()

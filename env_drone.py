@@ -14,7 +14,8 @@ class Drone(object):
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
-                 noise_std=0):
+                 noise_std=0.1,
+                 estimated_param=None):
         assert total_obstacle >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
@@ -26,14 +27,6 @@ class Drone(object):
         self.max_theta = max_theta
         self.noise_std = noise_std
 
-        self.A_nominal = [[0, 0, 0, 1, 0, 0, 0, 0],
-                          [0, 0, 0, 0, 1, 0, 0, 0],
-                          [0, 0, 0, 0, 0, 1, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 1, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 1],
-                          [0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 0]]
         self.A_real = [[0, 0, 0, 1, 0, 0, 0, 0],
                        [0, 0, 0, 0, 1, 0, 0, 0],
                        [0, 0, 0, 0, 0, 1, 0, 0],
@@ -42,14 +35,7 @@ class Drone(object):
                        [0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0]]
-        self.B_nominal = [[0, 0, 0],
-                          [0, 0, 0],
-                          [0, 0, 0],
-                          [0, 0, 0],
-                          [0, 0, 0],
-                          [0, 0, 1],
-                          [1, 0, 0],
-                          [0, 1, 0]]
+        
         self.B_real = [[0, 0, 0],
                        [0, 0, 0],
                        [0, 0, 0],
@@ -58,6 +44,29 @@ class Drone(object):
                        [0, 0, 1],
                        [1, 0, 0],
                        [0, 1, 0]]
+
+        if estimated_param is not None:
+            # use estimated parameters as the nominal model
+            self.A_nominal = estimated_param['A']
+            self.B_nominal = estimated_param['B']
+        else:
+            self.A_nominal = [[0, 0, 0, 1, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 1, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 1, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 1, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 1],
+                          [0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0]]
+            self.B_nominal = [[0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 0],
+                          [0, 0, 1],
+                          [1, 0, 0],
+                          [0, 1, 0]]
+
         self.K = self.get_K()
         self.noise = np.random.normal(size=(8,)) * self.noise_std
         
@@ -184,7 +193,9 @@ class Drone(object):
     def get_noise(self):
         if np.random.uniform() < 0.05:
             self.noise = np.random.normal(size=(8,)) * self.noise_std
-        return self.noise
+        noise = np.copy(self.noise)
+        noise[:3] = 0
+        return noise
 
 
 if __name__ == '__main__':

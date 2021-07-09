@@ -11,8 +11,8 @@ import utils
 np.set_printoptions(4)
 
 
-def main(vis=False):
-    env = Drone()
+def main(vis=False, estimated_param=None):
+    env = Drone(estimated_param=estimated_param)
 
     nn_controller = NNController(n_state=8, k_obstacle=8, m_control=3)
     cbf = CBF(n_state=8, k_obstacle=8, m_control=3)
@@ -68,4 +68,6 @@ def main(vis=False):
             goal_reached = goal_reached * (1-1e-2) + (dist < 2.0) * 1e-2
             state, obstacle, goal = env.reset()
 
-main()
+if __name__ == '__main__':
+    estimated_param = np.load(open('data/estimated_model_drone.npz', 'rb'))
+    main(False, estimated_param)

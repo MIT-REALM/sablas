@@ -11,8 +11,8 @@ import utils
 np.set_printoptions(4)
 
 
-def main(vis=True):
-    env = Drone()
+def main(vis=True, estimated_param=None):
+    env = Drone(estimated_param=estimated_param)
     
     nn_controller = NNController(n_state=8, k_obstacle=8, m_control=3)
     nn_controller.load_state_dict(torch.load('./data/drone_controller_weights.pth'))
@@ -87,7 +87,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--vis', type=int, default=0)
-
+    parser.add_argument('--param', type=str, default='data/estimated_model_drone.npz')
     args = parser.parse_args()
 
-    main(args.vis)
+    estimated_param = np.load(open(args.param, 'rb'))
+
+    main(args.vis, estimated_param)
