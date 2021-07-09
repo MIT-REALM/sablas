@@ -51,17 +51,13 @@ def main(vis=False, estimated_param=None):
         goal = goal_next
 
         if np.mod(i, config.POLICY_UPDATE_INTERVAL) == 0 and i > 0:
-            if np.mod(i // config.POLICY_UPDATE_INTERVAL, 2) == 0:
-                loss_np, acc_np = trainer.train_cbf()
-                print('step: {}, train h, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}'.format(
-                    i, loss_np, safety_rate, goal_reached, acc_np))
-                torch.save(cbf.state_dict(), './data/drone_cbf_weights.pth')
 
-            elif np.mod(i // config.POLICY_UPDATE_INTERVAL, 2) == 1:
-                loss_np, acc_np = trainer.train_controller()
-                print('step: {}, train u, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}'.format(
-                    i, loss_np, safety_rate, goal_reached, acc_np))
-                torch.save(nn_controller.state_dict(), './data/drone_controller_weights.pth')
+            loss_np, acc_np = trainer.train_cbf_and_controller()
+            print('step: {}, train h and u, loss: {:.3f}, safety rate: {:.3f}, goal reached: {:.3f}, acc: {}'.format(
+                i, loss_np, safety_rate, goal_reached, acc_np))
+
+            torch.save(cbf.state_dict(), './data/drone_cbf_weights.pth')
+            torch.save(nn_controller.state_dict(), './data/drone_controller_weights.pth')
 
         if done:
             dist = np.linalg.norm(state[:3] - goal[:3])

@@ -138,6 +138,79 @@ class Trainer(object):
         return loss_np, acc_np
 
 
+    def train_cbf_and_controller(self, batch_size=256, opt_iter=50, eps=0.1):
+
+        loss_np = 0.0
+        acc_np = np.zeros((5,), dtype=np.float32)
+
+        for i in range(opt_iter):
+            # state (bs, n_state), obstacle (bs, k_obstacle, n_state)
+            # u_nominal (bs, m_control), state_next (bs, n_state)
+            state, obstacle, u_nominal, state_next, state_error = self.dataset.sample_data(batch_size)
+            state = torch.from_numpy(state)
+            obstacle = torch.from_numpy(obstacle)
+            u_nominal = torch.from_numpy(u_nominal)
+            state_next = torch.from_numpy(state_next)
+            state_error = torch.from_numpy(state_error)
+
+            safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
+
+            h = self.cbf(state, obstacle)
+
+            u = self.controller(state, obstacle, u_nominal, state_error)
+            dsdt_nominal = self.nominal_dynamics(state, u)
+            state_next_nominal = state + dsdt_nominal * self.dt
+
+            state_next_with_grad = state_next_nominal + (state_next - state_next_nominal).detach()
+
+            h_next = self.cbf(state_next_with_grad, obstacle)
+            deriv_cond = (h_next - h) / self.dt + h
+
+            num_safe = torch.sum(safe_mask)
+            num_dang = torch.sum(dang_mask)
+            num_mid = torch.sum(mid_mask)
+
+            loss_h_safe = torch.sum(nn.ReLU()(eps - h) * safe_mask) / (1e-5 + num_safe)
+            loss_h_dang = torch.sum(nn.ReLU()(h + eps) * dang_mask) / (1e-5 + num_dang)
+
+            acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
+            acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
+
+            loss_deriv_safe = torch.sum(nn.ReLU()(-deriv_cond) * safe_mask) / (1e-5 + num_safe)
+            loss_deriv_dang = torch.sum(nn.ReLU()(-deriv_cond) * dang_mask) / (1e-5 + num_dang)
+            loss_deriv_mid = torch.sum(nn.ReLU()(-deriv_cond) * mid_mask) / (1e-5 + num_mid)
+
+            acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
+            acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
+            acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
+
+            loss_action = torch.mean((u - u_nominal)**2)
+
+            loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * 0.08
+
+            self.controller_optimizer.zero_grad()
+            self.cbf_optimizer.zero_grad()
+
+            loss.backward()
+            
+            self.controller_optimizer.step()
+            self.cbf_optimizer.step()
+
+            # log statics
+            acc_np[0] += acc_h_safe.detach().cpu().numpy()
+            acc_np[1] += acc_h_dang.detach().cpu().numpy()
+
+            acc_np[2] += acc_deriv_safe.detach().cpu().numpy()
+            acc_np[3] += acc_deriv_dang.detach().cpu().numpy()
+            acc_np[4] += acc_deriv_mid.detach().cpu().numpy()
+
+            loss_np += loss.detach().cpu().numpy()
+
+        acc_np = acc_np / opt_iter
+        loss_np = loss_np / opt_iter
+        return loss_np, acc_np
+
+
     def get_mask(self, state, obstacle):
         """
         args:
