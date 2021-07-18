@@ -88,6 +88,6 @@ class NNController(nn.Module):
         x = torch.cat([x, u_nominal, state_error], dim=1) # (bs, 128 + m_control)
         x = self.activation(self.fc0(x))
         x = self.activation(self.fc1(x))
-        x = self.fc2(x)
+        x = self.output_activation(self.fc2(x))
         u = x + u_nominal
         return u
