@@ -5,7 +5,7 @@ import numpy as np
 
 class Trainer(object):
 
-    def __init__(self, controller, cbf, dataset, nominal_dynamics, n_pos, dt=0.1, safe_dist=1, dang_dist=0.6):
+    def __init__(self, controller, cbf, dataset, nominal_dynamics, n_pos, dt=0.1, safe_dist=1, dang_dist=0.6, action_loss_weight=0.08):
         self.controller = controller
         self.cbf = cbf
         self.dataset = dataset
@@ -18,6 +18,7 @@ class Trainer(object):
         self.dt = dt
         self.safe_dist = safe_dist
         self.dang_dist = dang_dist
+        self.action_loss_weight = action_loss_weight
 
 
     def train_cbf(self, batch_size=256, opt_iter=50, eps=0.1):
@@ -120,7 +121,7 @@ class Trainer(object):
 
             loss_action = torch.mean((u - u_nominal)**2)
 
-            loss = loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * 0.08
+            loss = loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
 
             self.controller_optimizer.zero_grad()
             loss.backward()
@@ -186,7 +187,7 @@ class Trainer(object):
 
             loss_action = torch.mean((u - u_nominal)**2)
 
-            loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * 0.08
+            loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
 
             self.controller_optimizer.zero_grad()
             self.cbf_optimizer.zero_grad()

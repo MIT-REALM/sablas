@@ -17,7 +17,7 @@ def main(vis=False, estimated_param=None):
     nn_controller = NNController(n_state=8, k_obstacle=8, m_control=3)
     cbf = CBF(n_state=8, k_obstacle=8, m_control=3)
     dataset = Dataset(n_state=8, k_obstacle=8, m_control=3, n_pos=3)
-    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=3)
+    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=3, action_loss_weight=0.1)
     state, obstacle, goal = env.reset()
 
     state_error = np.zeros((8,), dtype=np.float32)
