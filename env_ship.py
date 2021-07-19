@@ -23,8 +23,8 @@ class Ship(object):
         self.max_steps = max_steps
         self.max_speed = max_speed
 
-        self.B_real = np.array([[1, 0], [0, 0.1], [0, 1]])
-        self.B_nominal = np.array([[1, 0], [0, 0.1], [0, 1]])
+        self.B_real = np.array([[1, 0], [0, 0.02], [0, 0.5]])
+        self.B_nominal = np.array([[1, 0], [0, 0.02], [0, 0.5]])
 
         # if gpu_id >= 0, we use gpu in self.nominal_dynamics_torch
         self.gpu_id = gpu_id

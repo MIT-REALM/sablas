@@ -11,7 +11,7 @@ import utils
 np.set_printoptions(4)
 
 
-def main(gpu_id=-1):
+def main(gpu_id=0):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
@@ -30,7 +30,7 @@ def main(gpu_id=-1):
     trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
                       n_pos=2, safe_dist=3.0, dang_dist=0.7, action_loss_weight=0.01, gpu_id=gpu_id if use_gpu else -1)
     state, obstacle, goal = env.reset()
-    add_action_noise = np.random.uniform() > 0.3
+    add_action_noise = np.random.uniform() > 0.5
 
     state_error = np.zeros((6,), dtype=np.float32)
 
@@ -94,7 +94,7 @@ def main(gpu_id=-1):
             if not add_action_noise:
                 goal_reached = goal_reached * (1-1e-2) + (dist < 2.0) * 1e-2
             state, obstacle, goal = env.reset()
-            add_action_noise = np.random.uniform() > 0.3
+            add_action_noise = np.random.uniform() > 0.5
 
 if __name__ == '__main__':
     main()

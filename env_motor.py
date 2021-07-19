@@ -9,7 +9,11 @@ class Motor(object):
     between their angular velocity should be lower than a given threshold.
     """
     def __init__(self, dt=0.1):
-        self.dt = dt 
+        self.dt = dt
+        self.num_steps = 0
+
+    def reset(self):
+
 
     def uncertain_dynamics(self, state, u):
         """
@@ -60,5 +64,31 @@ class Motor(object):
         dsdt = torch.cat([dsdt_0, dsdt_1, dsdt_2, dsdt_3], dim=1)
         return dsdt
 
-    def nominal_controller(self, state, )
+    def nominal_controller(self, state, goal):
+        """
+        args:
+            state (4,): i_0, omega_0, i_1, omega_1
+            goal (2,): omega_star_0, omega_star_1
+        returns:
+            u_nominal (2,): u_0, u_1
+        """
+        e_0 = goal[0] - state[1]
+        e_1 = goal[1] - state[3]
+
+        k = 1.0
+        u_0 = e_0 * k
+        u_1 = e_1 * k 
+
+        u_nominal = np.array([u_0, u_1])
+        return u_nominal
+
+
+if __name__ == '__main__':
+    env = Motor()
+
+    for i in range(10000):
+        omega_star_0 = np.sin(i * 0.01)
+        omega_star_1 = np.cos(i * 0.01)
+
+
     
