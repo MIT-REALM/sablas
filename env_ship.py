@@ -11,7 +11,8 @@ class Ship(object):
                  env_size=20, 
                  safe_dist=1, 
                  max_steps=600, 
-                 max_speed=np.array([0.3, 0.3, 1.0])
+                 max_speed=np.array([0.3, 0.3, 1.0]),
+                 gpu_id=-1
                  ):
         assert total_obstacle >= k_obstacle
         self.dt = dt
@@ -24,6 +25,9 @@ class Ship(object):
 
         self.B_real = np.array([[1, 0], [0, 0.1], [0, 1]])
         self.B_nominal = np.array([[1, 0], [0, 0.1], [0, 1]])
+
+        # if gpu_id >= 0, we use gpu in self.nominal_dynamics_torch
+        self.gpu_id = gpu_id
 
     def reset(self):
         self.obstacle = np.random.uniform(
@@ -118,12 +122,16 @@ class Ship(object):
             torch.sin(psi), torch.cos(psi), zeros,
             zeros, zeros, ones
         ], dim=1)
+        if self.gpu_id >= 0:
+            R = R.cuda(self.gpu_id)
         detadt = torch.bmm(R.view(-1, 3, 3), state[:, 3:].view(-1, 3, 1)) # (bs, 3, 1)
         detadt = detadt.squeeze(-1)  # (bs, 3)
 
         bs = state.shape[0]
         B = self.B_nominal.astype(np.float32).reshape(-1, 3, 2)
         B = torch.from_numpy(B).repeat(bs, 1, 1)
+        if self.gpu_id >=0:
+            B = B.cuda(self.gpu_id)
         dnudt = torch.bmm(B, u.view(-1, 2, 1)) # (bs, 3, 1)
         dnudt = dnudt.squeeze(-1)  # (bs, 3)
         dsdt = torch.cat([detadt, dnudt], dim=1)

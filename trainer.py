@@ -5,7 +5,17 @@ import numpy as np
 
 class Trainer(object):
 
-    def __init__(self, controller, cbf, dataset, nominal_dynamics, n_pos, dt=0.1, safe_dist=1, dang_dist=0.6, action_loss_weight=0.08):
+    def __init__(self, 
+                 controller, 
+                 cbf, 
+                 dataset, 
+                 nominal_dynamics, 
+                 n_pos, 
+                 dt=0.1, 
+                 safe_dist=1, 
+                 dang_dist=0.6, 
+                 action_loss_weight=0.08,
+                 gpu_id=-1):
         self.controller = controller
         self.cbf = cbf
         self.dataset = dataset
@@ -19,6 +29,8 @@ class Trainer(object):
         self.safe_dist = safe_dist
         self.dang_dist = dang_dist
         self.action_loss_weight = action_loss_weight
+        # if gpu_id >=0, use gpu in training
+        self.gpu_id = gpu_id
 
 
     def train_cbf(self, batch_size=256, opt_iter=50, eps=0.1):
@@ -33,6 +45,11 @@ class Trainer(object):
             state = torch.from_numpy(state)
             obstacle = torch.from_numpy(obstacle)
             state_next = torch.from_numpy(state_next)
+
+            if self.gpu_id >= 0:
+                state = state.cuda(self.gpu_id)
+                obstacle = obstacle.cuda(self.gpu_id)
+                state_next = state_next.cuda(self.gpu_id)
 
             safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
             h = self.cbf(state, obstacle)
@@ -94,6 +111,13 @@ class Trainer(object):
             state_next = torch.from_numpy(state_next)
             state_error = torch.from_numpy(state_error)
 
+            if self.gpu_id >= 0:
+                state = state.cuda(self.gpu_id)
+                obstacle = obstacle.cuda(self.gpu_id)
+                u_nominal = u_nominal.cuda(self.gpu_id)
+                state_next = state_next.cuda(self.gpu_id)
+                state_error = state_error.cuda(self.gpu_id)
+
             safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
 
             h = self.cbf(state, obstacle)
@@ -153,6 +177,13 @@ class Trainer(object):
             u_nominal = torch.from_numpy(u_nominal)
             state_next = torch.from_numpy(state_next)
             state_error = torch.from_numpy(state_error)
+
+            if self.gpu_id >= 0:
+                state = state.cuda(self.gpu_id)
+                obstacle = obstacle.cuda(self.gpu_id)
+                u_nominal = u_nominal.cuda(self.gpu_id)
+                state_next = state_next.cuda(self.gpu_id)
+                state_error = state_error.cuda(self.gpu_id)
 
             safe_mask, dang_mask, mid_mask = self.get_mask(state, obstacle)
 

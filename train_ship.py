@@ -11,18 +11,24 @@ import utils
 np.set_printoptions(4)
 
 
-def main():
-    env = Ship()
-
-    preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
-
+def main(gpu_id=-1):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
+    preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
     nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
     cbf = CBF(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
+
+    use_gpu = torch.cuda.is_available() and gpu_id >= 0
+    if use_gpu:
+        print('Using GPU {}'.format(gpu_id))
+        nn_controller = nn_controller.cuda(gpu_id)
+        cbf = cbf.cuda(gpu_id)
+
+    env = Ship(gpu_id=gpu_id if use_gpu else -1)
     # the dataset stores the orignal state representation, where n_state is 6
     dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2, buffer_size=100000)
-    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=2, safe_dist=3.0, dang_dist=0.7, action_loss_weight=0.01)
+    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
+                      n_pos=2, safe_dist=3.0, dang_dist=0.7, action_loss_weight=0.01, gpu_id=gpu_id if use_gpu else -1)
     state, obstacle, goal = env.reset()
     add_action_noise = np.random.uniform() > 0.3
 
@@ -30,17 +36,23 @@ def main():
 
     safety_rate = 0.0
     goal_reached = 0.0
-
     dt = 0.1
 
     for i in range(config.TRAIN_STEPS * 5):
         u_nominal = env.nominal_controller(state, goal)
 
-        u = nn_controller(
-            torch.from_numpy(state.reshape(1, 6).astype(np.float32)), 
-            torch.from_numpy(obstacle.reshape(1, 8, 6).astype(np.float32)),
-            torch.from_numpy(u_nominal.reshape(1, 2).astype(np.float32)),
-            torch.from_numpy(state_error.reshape(1, 6).astype(np.float32)))
+        state_torch = torch.from_numpy(state.reshape(1, 6).astype(np.float32))
+        obstacle_torch = torch.from_numpy(obstacle.reshape(1, 8, 6).astype(np.float32))
+        u_nominal_torch = torch.from_numpy(u_nominal.reshape(1, 2).astype(np.float32))
+        state_error_torch = torch.from_numpy(state_error.reshape(1, 6).astype(np.float32))
+
+        if use_gpu:
+            state_torch = state_torch.cuda(gpu_id)
+            obstacle_torch = obstacle_torch.cuda(gpu_id)
+            u_nominal_torch = u_nominal_torch.cuda(gpu_id)
+            state_error_torch = state_error_torch.cuda(gpu_id)
+
+        u = nn_controller(state_torch, obstacle_torch, u_nominal_torch, state_error_torch)
         u = np.squeeze(u.detach().cpu().numpy())
 
         if add_action_noise:
