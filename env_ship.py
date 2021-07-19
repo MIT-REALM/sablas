@@ -4,7 +4,15 @@ import torch
 
 class Ship(object):
 
-    def __init__(self, dt=0.1, k_obstacle=8, total_obstacle=10, env_size=20, safe_dist=1, max_steps=300, max_speed=1.0):
+    def __init__(self,
+                 dt=0.1, 
+                 k_obstacle=8, 
+                 total_obstacle=40, 
+                 env_size=20, 
+                 safe_dist=1, 
+                 max_steps=600, 
+                 max_speed=np.array([0.3, 0.3, 1.0])
+                 ):
         assert total_obstacle >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
@@ -180,10 +188,10 @@ if __name__ == '__main__':
     plt.scatter(obstacle[:, 0], obstacle[:, 1], color='darkblue')
     plt.scatter(goal[0], goal[1], color='darkorange')
 
-    for i in range(200):
+    for i in range(env.max_steps):
         u = env.nominal_controller(state, goal)
         state, _, _, _, _ = env.step(u)
-        plt.scatter(state[0], state[1], color='darkred', alpha=i/200)
+        plt.scatter(state[0], state[1], color='darkred', alpha=i/1000)
         #fig.canvas.draw()
         #plt.pause(0.1)
 

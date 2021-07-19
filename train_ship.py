@@ -21,8 +21,8 @@ def main():
     nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
     cbf = CBF(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
     # the dataset stores the orignal state representation, where n_state is 6
-    dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2)
-    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=2, safe_dist=3.0, dang_dist=0.7, action_loss_weight=0.005)
+    dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2, buffer_size=100000)
+    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, n_pos=2, safe_dist=3.0, dang_dist=0.7, action_loss_weight=0.01)
     state, obstacle, goal = env.reset()
     add_action_noise = np.random.uniform() > 0.3
 
@@ -44,8 +44,11 @@ def main():
         u = np.squeeze(u.detach().cpu().numpy())
 
         if add_action_noise:
-            # add noise to improve the diversity of the training samples
-            u = u + np.random.normal(size=(2,)) * 3.0
+            #if np.random.uniform() > 0.5:
+            #    # add noise to improve the diversity of the training samples
+            #    u = u + np.random.normal(size=(2,)) * 3.0
+            #else:
+            u = u_nominal
 
         state_next, state_nominal_next, obstacle_next, goal_next, done = env.step(u)
 

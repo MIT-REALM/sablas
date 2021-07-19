@@ -11,7 +11,7 @@ class Trainer(object):
         self.dataset = dataset
         self.nominal_dynamics = nominal_dynamics
         self.controller_optimizer = torch.optim.Adam(
-            self.controller.parameters(), lr=1e-4, weight_decay=1e-5)
+            self.controller.parameters(), lr=5e-4, weight_decay=1e-5)
         self.cbf_optimizer = torch.optim.Adam(
             self.cbf.parameters(), lr=1e-4, weight_decay=1e-5)
         self.n_pos = n_pos
