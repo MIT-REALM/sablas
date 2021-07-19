@@ -13,7 +13,8 @@ class Motor(object):
         self.num_steps = 0
 
     def reset(self):
-
+        self.state = np.zeros((4,), dtype=np.float32)
+        self.num_steps = 0
 
     def uncertain_dynamics(self, state, u):
         """
