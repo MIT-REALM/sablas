@@ -11,7 +11,7 @@ import utils
 np.set_printoptions(4)
 
 
-def main(gpu_id=1):
+def main(gpu_id=0):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
@@ -57,11 +57,8 @@ def main(gpu_id=1):
         u = np.squeeze(u.detach().cpu().numpy())
 
         if add_action_noise:
-            #if np.random.uniform() > 0.5:
             # add noise to improve the diversity of the training samples
             u = u + np.random.normal(size=(2,)) * 3.0
-            #else:
-            #u = u_nominal
 
         state_next, state_nominal_next, obstacle_next, goal_next, done = env.step(u)
 

@@ -12,7 +12,7 @@ np.set_printoptions(4)
 
 
 def main(vis=True, estimated_param=None):
-    env = Ship()
+    env = Ship(max_steps=2000)
 
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
     
