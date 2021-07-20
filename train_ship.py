@@ -11,11 +11,11 @@ import utils
 np.set_printoptions(4)
 
 
-def main(gpu_id=0):
+def main(gpu_id=1):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
-    nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
+    nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func, output_scale=1.1)
     cbf = CBF(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
 
     use_gpu = torch.cuda.is_available() and gpu_id >= 0
@@ -28,7 +28,7 @@ def main(gpu_id=0):
     # the dataset stores the orignal state representation, where n_state is 6
     dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2, buffer_size=100000)
     trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
-                      n_pos=2, safe_dist=3.0, dang_dist=0.7, action_loss_weight=0.01, gpu_id=gpu_id if use_gpu else -1)
+                      n_pos=2, safe_dist=3.0, dang_dist=1.0, action_loss_weight=0.02, gpu_id=gpu_id if use_gpu else -1)
     state, obstacle, goal = env.reset()
     add_action_noise = np.random.uniform() > 0.5
 
@@ -38,7 +38,7 @@ def main(gpu_id=0):
     goal_reached = 0.0
     dt = 0.1
 
-    for i in range(config.TRAIN_STEPS * 5):
+    for i in range(config.TRAIN_STEPS):
         u_nominal = env.nominal_controller(state, goal)
 
         state_torch = torch.from_numpy(state.reshape(1, 6).astype(np.float32))
@@ -57,10 +57,10 @@ def main(gpu_id=0):
 
         if add_action_noise:
             #if np.random.uniform() > 0.5:
-            #    # add noise to improve the diversity of the training samples
-            #    u = u + np.random.normal(size=(2,)) * 3.0
+            # add noise to improve the diversity of the training samples
+            u = u + np.random.normal(size=(2,)) * 3.0
             #else:
-            u = u_nominal
+            #u = u_nominal
 
         state_next, state_nominal_next, obstacle_next, goal_next, done = env.step(u)
 

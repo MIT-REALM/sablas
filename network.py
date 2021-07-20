@@ -47,7 +47,7 @@ class CBF(nn.Module):
 
 class NNController(nn.Module):
 
-    def __init__(self, n_state, k_obstacle, m_control, preprocess_func=None):
+    def __init__(self, n_state, k_obstacle, m_control, preprocess_func=None, output_scale=1.0):
         super().__init__()
         self.n_state = n_state
         self.k_obstacle = k_obstacle
@@ -62,6 +62,7 @@ class NNController(nn.Module):
         self.fc2 = nn.Linear(64, m_control)
         self.activation = nn.ReLU()
         self.output_activation = nn.Tanh()
+        self.output_scale = output_scale
 
     def forward(self, state, obstacle, u_nominal, state_error):
         """
@@ -88,7 +89,6 @@ class NNController(nn.Module):
         x = torch.cat([x, u_nominal, state_error], dim=1) # (bs, 128 + m_control)
         x = self.activation(self.fc0(x))
         x = self.activation(self.fc1(x))
-        #x = self.output_activation(self.fc2(x))
-        x = torch.clamp(self.fc2(x), -1, 1)
+        x = self.output_activation(self.fc2(x)) * self.output_scale
         u = x + u_nominal
         return u

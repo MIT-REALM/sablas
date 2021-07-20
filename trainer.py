@@ -163,7 +163,7 @@ class Trainer(object):
         return loss_np, acc_np
 
 
-    def train_cbf_and_controller(self, batch_size=256, opt_iter=50, eps=0.1):
+    def train_cbf_and_controller(self, batch_size=1024, opt_iter=100, eps=0.1, eps_deriv=0.03, eps_action=0.2):
 
         loss_np = 0.0
         acc_np = np.zeros((5,), dtype=np.float32)
@@ -208,15 +208,15 @@ class Trainer(object):
             acc_h_safe = torch.sum((h >= 0).float() * safe_mask) / (1e-5 + num_safe)
             acc_h_dang = torch.sum((h < 0).float() * dang_mask) / (1e-5 + num_dang)
 
-            loss_deriv_safe = torch.sum(nn.ReLU()(-deriv_cond) * safe_mask) / (1e-5 + num_safe)
-            loss_deriv_dang = torch.sum(nn.ReLU()(-deriv_cond) * dang_mask) / (1e-5 + num_dang)
-            loss_deriv_mid = torch.sum(nn.ReLU()(-deriv_cond) * mid_mask) / (1e-5 + num_mid)
+            loss_deriv_safe = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * safe_mask) / (1e-5 + num_safe)
+            loss_deriv_dang = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * dang_mask) / (1e-5 + num_dang)
+            loss_deriv_mid = torch.sum(nn.ReLU()(eps_deriv - deriv_cond) * mid_mask) / (1e-5 + num_mid)
 
             acc_deriv_safe = torch.sum((deriv_cond > 0).float() * safe_mask) / (1e-5 + num_safe)
             acc_deriv_dang = torch.sum((deriv_cond > 0).float() * dang_mask) / (1e-5 + num_dang)
             acc_deriv_mid = torch.sum((deriv_cond > 0).float() * mid_mask) / (1e-5 + num_mid)
 
-            loss_action = torch.mean((u - u_nominal)**2)
+            loss_action = torch.mean(nn.ReLU()(torch.abs(u - u_nominal) - eps_action))
 
             loss = loss_h_safe + loss_h_dang + loss_deriv_safe + loss_deriv_dang + loss_deriv_mid + loss_action * self.action_loss_weight
 
