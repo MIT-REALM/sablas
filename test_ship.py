@@ -16,7 +16,7 @@ def main(vis=True, estimated_param=None):
 
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
     
-    nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
+    nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func, output_scale=1.1)
     nn_controller.load_state_dict(torch.load('./data/ship_controller_weights.pth'))
     nn_controller.eval()
 

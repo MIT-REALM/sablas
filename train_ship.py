@@ -28,7 +28,8 @@ def main(gpu_id=1):
     # the dataset stores the orignal state representation, where n_state is 6
     dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2, buffer_size=100000)
     trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
-                      n_pos=2, safe_dist=3.0, dang_dist=1.0, action_loss_weight=0.02, gpu_id=gpu_id if use_gpu else -1)
+                      n_pos=2, safe_dist=3.0, dang_dist=1.0, action_loss_weight=0.02, gpu_id=gpu_id if use_gpu else -1,
+                      lr_decay_stepsize=int(config.TRAIN_STEPS/config.POLICY_UPDATE_INTERVAL/3))
     state, obstacle, goal = env.reset()
     add_action_noise = np.random.uniform() > 0.5
 

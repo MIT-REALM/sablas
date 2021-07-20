@@ -15,7 +15,8 @@ class Trainer(object):
                  safe_dist=1, 
                  dang_dist=0.6, 
                  action_loss_weight=0.08,
-                 gpu_id=-1):
+                 gpu_id=-1,
+                 lr_decay_stepsize=-1):
         self.controller = controller
         self.cbf = cbf
         self.dataset = dataset
@@ -31,6 +32,15 @@ class Trainer(object):
         self.action_loss_weight = action_loss_weight
         # if gpu_id >=0, use gpu in training
         self.gpu_id = gpu_id
+
+        # the learning rate is decayed when self.train_cbf_and_controller is called
+        # lr_decay_stepsize times
+        self.lr_decay_stepsize = lr_decay_stepsize
+        if lr_decay_stepsize >= 0:
+            self.cbf_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+                self.cbf_optimizer, step_size=lr_decay_stepsize, gamma=0.5)
+            self.controller_lr_scheduler = torch.optim.lr_scheduler.StepLR(
+                self.controller_optimizer, step_size=lr_decay_stepsize, gamma=0.5)
 
 
     def train_cbf(self, batch_size=256, opt_iter=50, eps=0.1):
@@ -240,6 +250,12 @@ class Trainer(object):
 
         acc_np = acc_np / opt_iter
         loss_np = loss_np / opt_iter
+
+        if self.lr_decay_stepsize >= 0:
+            # learning rate decay
+            self.cbf_lr_scheduler.step()
+            self.controller_lr_scheduler.step()
+        
         return loss_np, acc_np
 
 
