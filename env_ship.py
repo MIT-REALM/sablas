@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+from network import ControlAffineDynamics
+import utils
 
 
 class Ship(object):
@@ -12,7 +14,8 @@ class Ship(object):
                  safe_dist=1, 
                  max_steps=600, 
                  max_speed=np.array([0.3, 0.3, 1.0]),
-                 gpu_id=-1
+                 gpu_id=-1,
+                 estimated_param=None
                  ):
         assert total_obstacle >= k_obstacle
         self.dt = dt
@@ -28,6 +31,17 @@ class Ship(object):
 
         # if gpu_id >= 0, we use gpu in self.nominal_dynamics_torch
         self.gpu_id = gpu_id
+
+        # prepare the estimated dynamics
+        if estimated_param is not None:
+            preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
+            self.dynamics_mlp = ControlAffineDynamics(
+                n_state=6, m_control=2, n_extended_state=1, preprocess_func=preprocess_func)
+            self.dynamics_mlp.load_state_dict(torch.load(estimated_param))
+            if gpu_id >= 0:
+                self.dynamics_mlp = self.dynamics_mlp.cuda(gpu_id)
+        else:
+            self.dynamics_mlp = None
 
     def reset(self):
         self.obstacle = np.random.uniform(
@@ -113,6 +127,19 @@ class Ship(object):
         returns:
             dsdt (bs, n_state)
         """
+        if self.dynamics_mlp is not None:
+            return self.nominal_dynamics_mlp_torch(state, u)
+        else:
+            return self.nominal_dynamics_analytic_torch(state, u)
+
+    def nominal_dynamics_analytic_torch(self, state, u):
+        """
+        args:
+            state (bs, n_state)
+            u (bs, m_control)
+        returns:
+            dsdt (bs, n_state)
+        """
         psi = state[:, 2:3]
         zeros = torch.zeros_like(psi)
         ones = torch.ones_like(psi)
@@ -135,6 +162,18 @@ class Ship(object):
         dnudt = torch.bmm(B, u.view(-1, 2, 1)) # (bs, 3, 1)
         dnudt = dnudt.squeeze(-1)  # (bs, 3)
         dsdt = torch.cat([detadt, dnudt], dim=1)
+        return dsdt
+
+    def nominal_dynamics_mlp_torch(self, state, u):
+        """
+        args:
+            state (bs, n_state)
+            u (bs, m_control)
+        returns:
+            dsdt (bs, n_state)
+        """
+        f, B = self.dynamics_mlp(state, u)
+        dsdt = f + torch.bmm(B, u.unsqueeze(-1)).squeeze(-1)
         return dsdt
 
     def nominal_controller(self, state, goal, u_norm_max=0.5):

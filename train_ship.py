@@ -11,7 +11,7 @@ import utils
 np.set_printoptions(4)
 
 
-def main(gpu_id=0):
+def main(gpu_id=0, estimated_param=None):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
@@ -24,7 +24,7 @@ def main(gpu_id=0):
         nn_controller = nn_controller.cuda(gpu_id)
         cbf = cbf.cuda(gpu_id)
 
-    env = Ship(gpu_id=gpu_id if use_gpu else -1)
+    env = Ship(gpu_id=gpu_id if use_gpu else -1, estimated_param=estimated_param)
     # the dataset stores the orignal state representation, where n_state is 6
     dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2, buffer_size=100000)
     trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
@@ -95,4 +95,4 @@ def main(gpu_id=0):
             add_action_noise = np.random.uniform() > 0.5
 
 if __name__ == '__main__':
-    main()
+    main(estimated_param='./data/estimated_model_ship.pth')

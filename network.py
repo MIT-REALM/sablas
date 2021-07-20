@@ -92,3 +92,45 @@ class NNController(nn.Module):
         x = self.output_activation(self.fc2(x)) * self.output_scale
         u = x + u_nominal
         return u
+
+
+class ControlAffineDynamics(nn.Module):
+
+    def __init__(self, n_state, m_control, preprocess_func=None, n_extended_state=0):
+        super().__init__()
+        self.n_state = n_state
+        self.m_control = m_control
+        self.preprocess_func = preprocess_func
+        self.n_extended_state = n_extended_state
+
+        self.f_fc0 = nn.Linear(n_state + n_extended_state, 64)
+        self.f_fc1 = nn.Linear(64, 128)
+        self.f_fc2 = nn.Linear(128, n_state)
+
+        self.B_fc0 = nn.Linear(n_state + n_extended_state, 64)
+        self.B_fc1 = nn.Linear(64, 128)
+        self.B_fc2 = nn.Linear(128, n_state * m_control)
+        
+        self.activation = nn.Tanh()
+
+    def forward(self, state, u):
+        """ Compute f(s) and B(s) such that sdot = f(s) + B(s)u.
+        args:
+            state (bs, n_state)
+            u (bs, m_control)
+        returns:
+            f (bs, n_state)
+            B (bs, n_state, m_control)
+        """
+        if self.preprocess_func is not None:
+            state = self.preprocess_func(state) # (bs, n_state + n_extended_state)
+        
+        x = self.activation(self.f_fc0(state))
+        x = self.activation(self.f_fc1(x))
+        f = self.f_fc2(x)
+
+        x = self.activation(self.B_fc0(state))
+        x = self.activation(self.B_fc1(x))
+        B = self.B_fc2(x).view(-1, self.n_state, self.m_control)
+
+        return f, B
