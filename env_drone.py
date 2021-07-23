@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import control
 
 
 class Drone(object):
@@ -67,7 +66,9 @@ class Drone(object):
                           [1, 0, 0],
                           [0, 1, 0]]
 
-        self.K = self.get_K()
+        self.K = np.array([[1, 0, 0, 2.41,    0,    0, 2.41,    0],
+                           [0, 1, 0,    0, 2.41,    0,    0, 2.41],
+                           [0, 0, 1,    0,    0, 1.73,    0,    0]])
         self.noise = np.random.normal(size=(8,)) * self.noise_std
         
         
@@ -183,12 +184,6 @@ class Drone(object):
 
     def get_goal(self, state):
         return self.goal
-
-    def get_K(self, state=None):
-        Q = np.eye(8)
-        R = np.eye(3)
-        K, _, _ = control.lqr(self.A_real, self.B_real, Q, R)
-        return K
 
     def get_noise(self):
         if np.random.uniform() < 0.05:
