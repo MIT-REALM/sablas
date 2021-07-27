@@ -1,7 +1,7 @@
 import numpy as np 
 import torch
 import config
-from env_ship import Ship
+from env_ship import Ship, River
 from dataset import Dataset
 import matplotlib.pyplot as plt
 from trainer import Trainer
@@ -11,8 +11,13 @@ import utils
 np.set_printoptions(4)
 
 
-def main(vis=True, estimated_param=None):
-    env = Ship(max_steps=2000)
+def main(env='ship', vis=True, estimated_param=None):
+    if env == 'ship':
+        env = Ship(max_steps=2000)
+    elif env == 'river':
+        env = River(max_steps=2000)
+    else:
+        raise NotImplementedError
 
     preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
     
@@ -86,8 +91,9 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--env', type=str, default='ship')
     parser.add_argument('--vis', type=int, default=0)
     parser.add_argument('--param', type=str, default='data/estimated_model_drone.npz')
     args = parser.parse_args()
 
-    main(args.vis, estimated_param=None)
+    main(args.env, args.vis, estimated_param=None)

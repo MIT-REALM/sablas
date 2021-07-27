@@ -219,6 +219,55 @@ class Ship(object):
         return self.goal
 
 
+class River(Ship):
+
+    def __init__(self,
+                 dt=0.1, 
+                 k_obstacle=8, 
+                 total_obstacle=100,
+                 env_size=20,
+                 river_width=4,
+                 safe_dist=1, 
+                 max_steps=600, 
+                 max_speed=np.array([0.3, 0.3, 1.0]),
+                 gpu_id=-1,
+                 estimated_param=None
+                 ):
+        super(River, self).__init__(
+                 dt,
+                 k_obstacle,
+                 total_obstacle,
+                 env_size,
+                 safe_dist,
+                 max_steps,
+                 max_speed,
+                 gpu_id,
+                 estimated_param
+        )
+        self.river_width = river_width
+    
+    def reset(self):
+        obstacle_xs_half = np.linspace(0, self.env_size, num=self.total_obstacle//2)
+        obstacle_xs = np.concatenate([obstacle_xs_half, obstacle_xs_half])
+        obstacle_ys_half = np.sin(obstacle_xs_half / self.env_size * np.pi * 2)
+        obstacle_ys = np.concatenate([
+            obstacle_ys_half * 3 + self.env_size * 0.5 - self.river_width * 0.5,
+            obstacle_ys_half * 3 + self.env_size * 0.5 + self.river_width * 0.5,
+        ])
+        
+        self.obstacle = np.concatenate([obstacle_xs.reshape(-1, 1), obstacle_ys.reshape(-1, 1)], axis=1)
+        state = np.array([0, self.env_size * 0.5])
+        # [x, y, psi, u, v, r]
+        state = np.concatenate([state, [0], np.zeros((3,))])
+        self.state = state
+        obstacle = self.get_obstacle(state)
+        goal = np.array([self.env_size, self.env_size * 0.5])
+        goal = np.concatenate([goal, np.zeros((4,))])
+        self.goal = goal
+        self.num_steps = 0
+        return state, obstacle, goal
+
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
