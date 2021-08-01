@@ -21,8 +21,13 @@ python test_drone.py --vis 1
 ```
 
 ### Ship Control
+Testing in a random environment:
 ```bash
-python test_ship.py --vis 1
+python test_ship.py --vis 1 --env ship
+```
+Testing in a river:
+```bash
+python test_ship.py --vis 1 --env river
 ```
 
 ## Training
@@ -50,3 +55,4 @@ Then train the control barrier function and controller:
 ```bash
 python train_ship.py
 ```
+We use random environments in training. The trained controller can be tested in different environments.

@@ -226,7 +226,7 @@ class River(Ship):
                  k_obstacle=8, 
                  total_obstacle=100,
                  env_size=20,
-                 river_width=4,
+                 river_width=2.0,
                  safe_dist=1, 
                  max_steps=600, 
                  max_speed=np.array([0.3, 0.3, 1.0]),
@@ -251,8 +251,8 @@ class River(Ship):
         obstacle_xs = np.concatenate([obstacle_xs_half, obstacle_xs_half])
         obstacle_ys_half = np.sin(obstacle_xs_half / self.env_size * np.pi * 2)
         obstacle_ys = np.concatenate([
-            obstacle_ys_half * 3 + self.env_size * 0.5 - self.river_width * 0.5,
-            obstacle_ys_half * 3 + self.env_size * 0.5 + self.river_width * 0.5,
+            obstacle_ys_half * 1 + self.env_size * 0.5 - self.river_width * 0.5,
+            obstacle_ys_half * 1 + self.env_size * 0.5 + self.river_width * 0.5,
         ])
         
         self.obstacle = np.concatenate([obstacle_xs.reshape(-1, 1), obstacle_ys.reshape(-1, 1)], axis=1)

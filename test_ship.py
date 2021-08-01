@@ -4,6 +4,8 @@ import config
 from env_ship import Ship, River
 from dataset import Dataset
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 from trainer import Trainer
 from network import CBF, NNController
 import utils
@@ -80,6 +82,12 @@ def main(env='ship', vis=True, estimated_param=None):
 
         if vis and np.mod(i, 10) == 0:
             ax.scatter(state[0], state[1], color='darkred')
+            rect = np.array([[0.6, 0.4], [-0.6, 0.4], [-0.6, -0.4], [0.6, -0.4]])
+            yaw = state[2]
+            R = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+            rect = rect.dot(R.T) + state[:2]
+            p = PatchCollection([Polygon(rect, True)], alpha=0.1, color='darkred')
+            ax.add_collection(p)
             ax.scatter(goal[0], goal[1], color='darkorange')
             if not is_safe:
                 plt.scatter(state[0], state[1], color='darkblue')
