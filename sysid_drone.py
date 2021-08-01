@@ -37,5 +37,6 @@ def main():
 
     f = open('data/estimated_model_drone.npz', 'wb')
     np.savez(f, A=A, B=B)
+    print('Done')
 
 main()

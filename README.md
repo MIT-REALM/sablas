@@ -8,12 +8,12 @@ git clone https://github.com/Zengyi-Qin/adacbf.git
 
 Install [PyTorch](https://pytorch.org/)>=1.9. GPU is not required, but recommended for training the ship controller. Then install other dependencies:
 ```bash
-pip install numpy matplotlib
+pip install numpy matplotlib tqdm
 ```
 
 ## Testing Pretrained Models
 
-Download `data.zip` from [this link](https://drive.google.com/file/d/1X2b8Voq5xliUYVMDFY6z-_O1bVealk4J/view?usp=sharing) and unzip in the main folder. It contains the estimated dynamics of the models and the neural network weights for the controllers and control barrier functions.
+Download `data.zip` from [this link](https://drive.google.com/file/d/1E4SxeWGFFhNPosMGI7NjRtQnYTUaDQDW/view?usp=sharing) and unzip in the main folder. It contains the estimated dynamics of the models and the neural network weights for the controllers and control barrier functions.
 
 ### Drone Control
 ```bash
