@@ -11,6 +11,61 @@ import utils
 np.set_printoptions(4)
 
 
+class ShipTrainer(Trainer):
+
+    def get_mask(self, state, obstacle):
+        """
+        args:
+            state (bs, n_state)
+            obstacle (bs, k_obstacle, n_state)
+        returns:
+            safe_mask (bs, k_obstacle)
+            mid_mask  (bs, k_obstacle)
+            dang_mask (bs, k_obstacle)
+        """
+        yaw = state[:, 2:3].unsqueeze(-1)           # (bs, 1, 1)
+        yaw_vect = torch.cat([torch.cos(yaw), torch.sin(yaw)], axis=1)
+        yaw_vect_perp = torch.cat([-torch.sin(yaw), torch.cos(yaw)], axis=1)
+
+        state = torch.unsqueeze(state, 2)[:, :2]    # (bs, 2, 1)
+        obstacle = obstacle.permute(0, 2, 1)[:, :2] # (bs, 2, k_obstacle)
+        diff = obstacle - state
+
+        front_dist = torch.abs(torch.sum(diff * yaw_vect, axis=1))
+        side_dist = torch.abs(torch.sum(diff * yaw_vect_perp, axis=1))
+
+        dang_mask = torch.logical_and(
+                front_dist <= self.dang_dist * 1.2, 
+                side_dist <= self.dang_dist * 0.8).float()
+        safe_mask = torch.logical_or(
+                front_dist >= self.safe_dist * 1.2,
+                side_dist >= self.safe_dist * 0.8).float()
+        mid_mask = (1 - safe_mask) * (1 - dang_mask)
+
+        return safe_mask, dang_mask, mid_mask
+
+
+def is_safe_ship(state, obstacle, dang_dist):
+    """
+    args:
+        state (n_state,)
+        obstacle (k_obstacle, n_state)
+        dang_dist (flost)
+    returns:
+        is_safe (bool)
+    """
+    yaw = state[2]
+    yaw_vect = np.array([np.cos(yaw), np.sin(yaw)])
+    yaw_vect_perp = np.array([-np.sin(yaw), np.cos(yaw)])
+
+    diff = obstacle[:, :2] - state[:2]
+    front_dist = np.abs(np.sum(diff * yaw_vect, axis=1))
+    side_dist = np.abs(np.sum(diff * yaw_vect_perp, axis=1))
+    is_dang = np.logical_and(front_dist < dang_dist * 1.2, side_dist < dang_dist * 0.8)
+    is_safe = not np.any(is_dang)
+    return is_safe
+
+
 def main(gpu_id=0, estimated_param=None):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
@@ -27,7 +82,7 @@ def main(gpu_id=0, estimated_param=None):
     env = Ship(gpu_id=gpu_id if use_gpu else -1, estimated_param=estimated_param)
     # the dataset stores the orignal state representation, where n_state is 6
     dataset = Dataset(n_state=6, k_obstacle=8, m_control=2, n_pos=2, buffer_size=100000)
-    trainer = Trainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
+    trainer = ShipTrainer(nn_controller, cbf, dataset, env.nominal_dynamics_torch, 
                       n_pos=2, safe_dist=3.0, dang_dist=1.0, action_loss_weight=0.02, gpu_id=gpu_id if use_gpu else -1,
                       lr_decay_stepsize=int(config.TRAIN_STEPS/config.POLICY_UPDATE_INTERVAL/3))
     state, obstacle, goal = env.reset()
@@ -67,7 +122,7 @@ def main(gpu_id=0, estimated_param=None):
         if not add_action_noise:
             # without action noise, the safety performance is the performance of the
             # neural network controller
-            is_safe = int(utils.is_safe(state, obstacle, n_pos=2, dang_dist=0.7))
+            is_safe = int(is_safe_ship(state, obstacle, dang_dist=0.7))
             safety_rate = safety_rate * (1 - 1e-4) + is_safe * 1e-4
 
         # error between the true current state and the state obtained from the nominal model
