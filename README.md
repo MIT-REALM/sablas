@@ -1,4 +1,4 @@
-# Safe Control for Black-box Dynamical Systems with Neural Barrier Certificates
+# Safe Control for Black-box Dynamical Systems via Neural Barrier Certificates
 
 ## Installation
 Clone the repository:
