@@ -1,14 +1,20 @@
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np 
 import torch
-import config
-from env_ship import Ship, River
-from dataset import Dataset
+
+from envs.env_ship import Ship, River
+from modules.dataset import Dataset
+from modules.trainer import Trainer
+from modules.network import CBF, NNController
+from modules import utils
+from modules import config
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
-from trainer import Trainer
-from network import CBF, NNController
-import utils
 
 np.set_printoptions(4)
 
@@ -101,7 +107,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='ship')
     parser.add_argument('--vis', type=int, default=0)
-    parser.add_argument('--param', type=str, default='data/estimated_model_drone.npz')
+    parser.add_argument('--param', type=str, default='./data/estimated_model_drone.npz')
     args = parser.parse_args()
 
     main(args.env, args.vis, estimated_param=None)

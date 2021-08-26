@@ -1,9 +1,13 @@
 """ System identification of the ship model. """
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np
 import torch
-from env_ship import Ship
-from network import ControlAffineDynamics
-import utils
+from envs.env_ship import Ship
+from modules.network import ControlAffineDynamics
+from modules import utils
 from tqdm import tqdm
 
 def main():

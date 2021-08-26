@@ -1,12 +1,16 @@
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np 
 import torch
-import config
-from env_ship import Ship
-from dataset import Dataset
+from envs.env_ship import Ship
+from modules.dataset import Dataset
+from modules.trainer import Trainer
+from modules.network import CBF, NNController
+from modules.utils import angle_to_sin_cos_torch
+from modules import config
 import matplotlib.pyplot as plt
-from trainer import Trainer
-from network import CBF, NNController
-import utils
 
 np.set_printoptions(4)
 
@@ -69,7 +73,7 @@ def is_safe_ship(state, obstacle, dang_dist):
 def main(gpu_id=0, estimated_param=None):
     # the original n_state is 6, but the state includes an angle. we convert the angle
     # to cos and sin before feeding into the controller and CBF, so the state length is 7
-    preprocess_func = lambda x: utils.angle_to_sin_cos_torch(x, [2])
+    preprocess_func = lambda x: angle_to_sin_cos_torch(x, [2])
     nn_controller = NNController(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func, output_scale=1.1)
     cbf = CBF(n_state=7, k_obstacle=8, m_control=2, preprocess_func=preprocess_func)
 

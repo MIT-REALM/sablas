@@ -1,6 +1,11 @@
 """ System identification of the drone model. """
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np
-from env_drone import Drone
+from envs.env_drone import Drone
+
 
 def main():
     env = Drone()
@@ -35,7 +40,9 @@ def main():
     A = mat[:, :8]
     B = mat[:, 8:]
 
-    f = open('data/estimated_model_drone.npz', 'wb')
+    if not os.path.exists('./data'):
+        os.mkdir('./data')
+    f = open('./data/estimated_model_drone.npz', 'wb')
     np.savez(f, A=A, B=B)
     print('Done')
 

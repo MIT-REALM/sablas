@@ -1,7 +1,11 @@
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np
 import torch
-from network import ControlAffineDynamics
-import utils
+from modules.network import ControlAffineDynamics
+from modules import utils
 
 
 class Ship(object):

@@ -17,17 +17,17 @@ Download `data.zip` from [this link](https://drive.google.com/file/d/1E4SxeWGFFh
 
 ### Drone Control
 ```bash
-python test_drone.py --vis 1
+python scripts/test_drone.py --vis 1
 ```
 
 ### Ship Control
 Testing in a random environment:
 ```bash
-python test_ship.py --vis 1 --env ship
+python scripts/test_ship.py --vis 1 --env ship
 ```
 Testing in a river:
 ```bash
-python test_ship.py --vis 1 --env river
+python scripts/test_ship.py --vis 1 --env river
 ```
 
 ## Training
@@ -36,23 +36,23 @@ python test_ship.py --vis 1 --env river
 
 Since we assume that the system is a black box, we need to first learn the system dynamics from sampled data:
 ```bash
-python sysid_drone.py
+python scripts/sysid_drone.py
 ```
 
 Then we train the control barrier function and controller:
 ```bash
-python train_drone.py
+python scripts/train_drone.py
 ```
 
 ### Ship
 
 First learn the dynamics from sampled data:
 ```bash
-python sysid_ship.py
+python scripts/sysid_ship.py
 ```
 
 Then train the control barrier function and controller:
 ```bash
-python train_ship.py
+python scripts/train_ship.py
 ```
 We use random environments in training. The trained controller can be tested in different environments.

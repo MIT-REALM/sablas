@@ -1,12 +1,16 @@
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np 
 import torch
-import config
-from env_drone import Drone
-from dataset import Dataset
+from envs.env_drone import Drone
+from modules import config
+from modules import utils
+from modules.dataset import Dataset
+from modules.trainer import Trainer
+from modules.network import CBF, NNController
 import matplotlib.pyplot as plt
-from trainer import Trainer
-from network import CBF, NNController
-import utils
 
 np.set_printoptions(4)
 
@@ -65,5 +69,5 @@ def main(vis=False, estimated_param=None):
             state, obstacle, goal = env.reset()
 
 if __name__ == '__main__':
-    estimated_param = np.load(open('data/estimated_model_drone.npz', 'rb'))
+    estimated_param = np.load(open('./data/estimated_model_drone.npz', 'rb'))
     main(False, estimated_param)

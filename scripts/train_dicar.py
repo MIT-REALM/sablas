@@ -1,12 +1,16 @@
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np 
 import torch
-import config
-from env_dicar import DoubleIntegrator
-from dataset import Dataset
+from envs.env_dicar import DoubleIntegrator
+from modules.dataset import Dataset
+from modules.trainer import Trainer
+from modules.network import CBF, NNController
+from modules import utils
+from modules import config
 import matplotlib.pyplot as plt
-from trainer import Trainer
-from network import CBF, NNController
-import utils
 
 np.set_printoptions(4)
 

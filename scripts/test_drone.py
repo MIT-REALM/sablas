@@ -1,12 +1,14 @@
+import os
+import sys
+sys.path.insert(1, os.path.abspath('.'))
+
 import numpy as np 
 import torch
-import config
-from env_drone import Drone
-from dataset import Dataset
+from envs.env_drone import Drone
+from modules import config
+from modules import utils
+from modules.network import CBF, NNController
 import matplotlib.pyplot as plt
-from trainer import Trainer
-from network import CBF, NNController
-import utils
 
 np.set_printoptions(4)
 
@@ -87,9 +89,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--vis', type=int, default=0)
-    parser.add_argument('--param', type=str, default='data/estimated_model_drone.npz')
+    parser.add_argument('--param', type=str, default='./data/estimated_model_drone.npz')
     args = parser.parse_args()
 
     estimated_param = np.load(open(args.param, 'rb'))
-
     main(args.vis, estimated_param)
