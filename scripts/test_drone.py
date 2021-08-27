@@ -13,10 +13,10 @@ import matplotlib.pyplot as plt
 np.set_printoptions(4)
 
 
-def main(env='drone', preplanned_traj=None, npc_speed=1.0, vis=True, estimated_param=None):
-    if env == 'drone':
+def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estimated_param=None):
+    if env_name == 'drone':
         env = Drone(estimated_param=estimated_param)
-    elif env == 'city':
+    elif env_name == 'city':
         env = City(estimated_param=estimated_param, preplanned_traj=preplanned_traj, npc_speed=npc_speed)
     else:
         raise NotImplementedError
@@ -56,8 +56,8 @@ def main(env='drone', preplanned_traj=None, npc_speed=1.0, vis=True, estimated_p
         is_safe = int(utils.is_safe(state, obstacle, n_pos=3, dang_dist=0.6))
         safety_rate = safety_rate * i / (i+1) + is_safe * 1.0 / (i+1)
 
-        # error between the true current state and the state obtained from the nominal model
-        # this error will be fed to the controller network in the next timestep
+        # Error between the true current state and the state obtained from the nominal model
+        # This error will be fed to the controller network in the next timestep
         state_error = (state_next - state_nominal_next) / dt
 
         state = state_next
@@ -71,11 +71,11 @@ def main(env='drone', preplanned_traj=None, npc_speed=1.0, vis=True, estimated_p
 
         if vis and np.mod(i, 20) == 0:
             ax.clear()
-            if env == 'city':
+            if env_name == 'city':
                 ax.set_xlim(-50, 50)
                 ax.set_ylim(-50, 50)
                 ax.set_zlim(-50, 50)
-            elif env == 'drone':
+            elif env_name == 'drone':
                 ax.set_xlim(0, 20)
                 ax.set_ylim(0, 20)
                 ax.set_zlim(0, 20)
