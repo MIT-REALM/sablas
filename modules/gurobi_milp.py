@@ -332,7 +332,7 @@ def plan_gurobi(obstacles, init, goal, limits, tmax=10., vmax=3., bloat_factor=1
     avoid_obs = Node('and', deps=[Node('negmu', info={'A':A, 'b':b}) for A, b in obstacles])
     always_avoid_obs = Node('A', deps=[avoid_obs,], info={'int':[0,tmax]})
     spec = always_avoid_obs
-    PWL = plan_single_agent(init, spec, [bloat_factor for _ in range(20)], num_segs=num_segs, limits=limits, hard_goal=goal, tmax=tmax, vmax=vmax, MIPGap=MIPGap)
+    PWL = plan_single_agent(init, spec, [bloat_factor for _ in range(6)], num_segs=num_segs, limits=limits, hard_goal=goal, tmax=tmax, vmax=vmax, MIPGap=MIPGap)
     if PWL is None:
         return None
     else:

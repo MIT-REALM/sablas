@@ -3,6 +3,7 @@ import sys
 sys.path.insert(1, os.path.abspath('.'))
 
 import json
+import random
 import numpy as np
 import torch
 import pickle
@@ -27,7 +28,7 @@ def get_distance_between_agents_and_obs(X, obstacles):
     return error
 
 
-def get_scene(num_agents, obstacle_bboxs, bloat_factor=1.5, mutual_min_dist=1.2, clearance_waypoints=100.):
+def get_scene(num_agents, obstacle_bboxs, env_size=10000, bloat_factor=1.5, mutual_min_dist=1.2, clearance_waypoints=100.):
 
     bboxs = obstacle_bboxs
     obstacles = []
@@ -43,6 +44,7 @@ def get_scene(num_agents, obstacle_bboxs, bloat_factor=1.5, mutual_min_dist=1.2,
     bboxs = np.array(bboxs)
     area_bound = np.array([bboxs[:,0,:].min(axis=0), bboxs[:,1,:].max(axis=0)]).T.tolist()
     area_bound[2][1] = 11.
+    area_bound = np.clip(area_bound, -env_size/2, env_size/2)
 
     waypoints = []
     B = np.array(area_bound)
@@ -89,7 +91,7 @@ class Drone(object):
                  k_obstacle=8, 
                  total_obstacle=500, 
                  env_size=20, 
-                 safe_dist=1, 
+                 safe_dist=1,
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
@@ -279,9 +281,11 @@ class City(object):
                  static_obstacle='data/city_buildings.json',
                  preplanned_traj=None,
                  dt=0.1,
-                 k_obstacle=8, 
+                 k_obstacle=8,
+                 env_size=100,
                  num_npc=1024,
-                 safe_dist=1, 
+                 safe_dist=1,
+                 perception_range=12,
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
@@ -290,8 +294,10 @@ class City(object):
         assert num_npc >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
+        self.env_size = env_size
         self.num_npc = num_npc
         self.safe_dist = safe_dist
+        self.perception_range = perception_range
         self.max_steps = max_steps
         self.max_speed = max_speed
         self.max_theta = max_theta
@@ -346,7 +352,7 @@ class City(object):
             # There are num_npc + 1 agents in total, including 1 controlled agent
             # and num_npc uncontrolled agents
             obstacles, obstacles_old_representation, area_bound, waypoints = \
-                get_scene(self.num_npc + 1, np.array(json.load(open(static_obstacle, 'r'))))
+                get_scene(self.num_npc + 1, np.array(json.load(open(static_obstacle, 'r'))), env_size=self.env_size)
             self.reference_traj = []
             reference_traj_as_list = []
             for i in range(self.num_npc + 1):
@@ -370,12 +376,157 @@ class City(object):
                     "traj": np.array(single_agent_traj["traj"]), 
                     "ts": np.array(single_agent_traj["ts"])})
         print('\nFinish preparing reference trajectories. Found {} NPC in total\n'.format(self.num_npc))
-            
+
+    def reset(self):
+        self.t = 0
+        random.shuffle(self.reference_traj)
+        self.state = np.concatenate([self.reference_traj[0]['traj'][0], np.zeros(5)])
+        obstacle = self.get_obstacle(self.state)
+        goal = self.get_goal(self.state)
+        return self.state, obstacle, goal
+
+    def step(self, u):
+        dsdt = self.uncertain_dynamics(self.state, u)
+        noise = self.get_noise()
+        state = self.state + (dsdt + noise) * self.dt
+        state[3:6] = np.clip(state[3:6], -self.max_speed, self.max_speed)
+        state[6:] = np.clip(state[6:], -self.max_theta, self.max_theta)
+
+        dsdt_nominal = self.nominal_dynamics(self.state, u)
+        state_nominal = self.state + dsdt_nominal * self.dt
+        state_nominal[3:6] = np.clip(state_nominal[3:6], -self.max_speed, self.max_speed)
+        state_nominal[6:] = np.clip(state_nominal[6:], -self.max_theta, self.max_theta)
+
+        obstacle = self.get_obstacle(state)
+        goal = self.get_goal(state)
+        self.state = state
+        done = int(self.t / self.dt) == len(self.reference_traj[0]['traj'])
+        if np.linalg.norm(goal[:3] - state[:3]) > 20:
+            # If too faraway from the reference trajectory, the tracking fails
+            done = True
+        self.t = min(self.t + self.dt, len(self.reference_traj[0]['traj']) * self.dt)
+        return state, state_nominal, obstacle, goal, done
+
+    def uncertain_dynamics(self, state, u):
+        """
+        args:
+            state (n_state,)
+            u (m_control,)
+        returns:
+            dsdt (n_state,)
+        """
+        A = np.array(self.A_real, dtype=np.float32)
+        B = np.array(self.B_real, dtype=np.float32)
+        dsdt = A.dot(state) + B.dot(u)
+
+        return dsdt
+
+    def nominal_dynamics(self, state, u):
+        """
+        args:
+            state (n_state,)
+            u (m_control,)
+        returns:
+            dsdt (n_state,)
+        """
+        A = np.array(self.A_nominal, dtype=np.float32)
+        B = np.array(self.B_nominal, dtype=np.float32)
+        dsdt = A.dot(state) + B.dot(u)
+
+        return dsdt
+
+    def nominal_dynamics_torch(self, state, u):
+        """
+        args:
+            state (bs, n_state)
+            u (bs, m_control)
+        returns:
+            dsdt (bs, n_state)
+        """
+        A = np.array(self.A_nominal, dtype=np.float32)
+        A_T = torch.from_numpy(A.T)
+
+        B = np.array(self.B_nominal, dtype=np.float32)
+        B_T = torch.from_numpy(B.T)
+
+        dsdt = torch.matmul(state, A_T) + torch.matmul(u, B_T)
+        
+        return dsdt
+
+    def nominal_controller(self, state, goal, u_norm_max=0.5):
+        """
+        args:
+            state (n_state,)
+            goal (n_state,)
+        returns:
+            u_nominal (m_control,)
+        """
+        K = self.K
+        u_nominal = -K.dot(state - goal)
+        norm = np.linalg.norm(u_nominal)
+        if norm > u_norm_max:
+            u_nominal = u_nominal / norm * u_norm_max
+        return u_nominal
+
+    def get_obstacle(self, state):
+        """
+        args:
+            state (n_state,)
+        returns:
+            obstacle (k_obstacle, n_state)
+        """
+        pos = state[:3]
+        ind_max = int(self.t / self.dt)
+        obstacle = []
+        for i in range(1, self.num_npc):
+            ind = min(ind_max, len(self.reference_traj[i]['traj']) - 1)
+            obstacle_pos = self.reference_traj[i]['traj'][ind][:3]
+            if np.linalg.norm(pos - obstacle_pos) < self.perception_range:
+                obstacle.append(obstacle_pos)
+        # print('{} nearby agents found'.format(len(obstacle)))
+
+        # Make the number of surrounding obstacles always equal to self.k_obstacle
+        if len(obstacle) < self.k_obstacle:
+            if len(obstacle) == 0:
+                obstacle.append(state[:3] + np.array([10, 10, 10]))
+            while len(obstacle) < self.k_obstacle:
+                obstacle.append(obstacle[-1])
+        elif len(obstacle) > self.k_obstacle:
+            obstacle = np.array(obstacle)
+            dist = np.linalg.norm(obstacle - pos, axis=1)
+            indices = np.argsort(dist)
+            obstacle = obstacle[indices[:self.k_obstacle]]
+        else:
+            pass
+        obstacle = np.concatenate([np.array(obstacle), np.zeros((self.k_obstacle, 5))], axis=1)
+        return obstacle
+
+    def get_goal(self, state, forward_t=10.0):
+        """
+        args:
+            state (n_state,): current state of the controlled agent.
+            forward_t (float): time to look forward in the reference trajectory
+        returns:
+            goal (n_state,): the state in the reference trajectory at t + forward_t
+        """
+        ind = int((self.t + forward_t) / self.dt)
+        ind = min(ind, len(self.reference_traj[0]['traj']) - 1)
+        goal = self.reference_traj[0]['traj'][ind]
+        goal = np.concatenate([goal, np.zeros((5,))])
+        return goal
+
+    def get_noise(self):
+        if np.random.uniform() < 0.05:
+            self.noise = np.random.normal(size=(8,)) * self.noise_std
+        noise = np.copy(self.noise)
+        noise[:3] = 0
+        return noise
+        
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt 
 
-    env = City()
+    env = City(preplanned_traj='data/reference_traj.json')
     fig = plt.figure()
  
     # syntax for 3-D projection
@@ -387,3 +538,13 @@ if __name__ == '__main__':
 
     ax.set_title('Trajectories for all agents')
     plt.show()
+
+    state, obstacle, goal = env.reset()
+    print('Starting position: {}'.format(state[:3]))
+    while True:
+        u = env.nominal_controller(state, goal)
+        state, state_nominal, obstacle, goal, done = env.step(u)
+        print('Distance to goal: {:.2f}'.format(np.linalg.norm(state[:3] - goal[:3])))
+        if done:
+            break
+    print('End position: {}'.format(state[:3]))

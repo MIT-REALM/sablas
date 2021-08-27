@@ -4,7 +4,7 @@ sys.path.insert(1, os.path.abspath('.'))
 
 import numpy as np 
 import torch
-from envs.env_drone import Drone
+from envs.env_drone import Drone, City
 from modules import config
 from modules import utils
 from modules.network import CBF, NNController
@@ -13,8 +13,13 @@ import matplotlib.pyplot as plt
 np.set_printoptions(4)
 
 
-def main(vis=True, estimated_param=None):
-    env = Drone(estimated_param=estimated_param)
+def main(env='drone', preplanned_traj=None, vis=True, estimated_param=None):
+    if env == 'drone':
+        env = Drone(estimated_param=estimated_param)
+    elif env == 'city':
+        env = City(estimated_param=estimated_param, preplanned_traj=preplanned_traj)
+    else:
+        raise NotImplementedError
     
     nn_controller = NNController(n_state=8, k_obstacle=8, m_control=3)
     nn_controller.load_state_dict(torch.load('./data/drone_controller_weights.pth'))
@@ -30,10 +35,6 @@ def main(vis=True, estimated_param=None):
         plt.ion()
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(111, projection='3d')
-        ax.set_xlim(0, 20)
-        ax.set_ylim(0, 20)
-        ax.set_zlim(0, 20)
-        ax.scatter(env.obstacle[:, 0], env.obstacle[:, 1], env.obstacle[:, 2], color='grey')
 
     state_error = np.zeros((8,), dtype=np.float32)
     dt = 0.1
@@ -50,7 +51,7 @@ def main(vis=True, estimated_param=None):
             torch.from_numpy(state_error.reshape(1, 8).astype(np.float32)))
         u = np.squeeze(u.detach().cpu().numpy())
         state_next, state_nominal_next, obstacle_next, goal_next, done = env.step(u)
-        #state_next, obstacle_next, goal_next, done = env.step(u_nominal)
+        #state_next, state_nominal_next, obstacle_next, goal_next, done = env.step(u_nominal)
 
         is_safe = int(utils.is_safe(state, obstacle, n_pos=3, dang_dist=0.6))
         safety_rate = safety_rate * i / (i+1) + is_safe * 1.0 / (i+1)
@@ -68,16 +69,22 @@ def main(vis=True, estimated_param=None):
             state, obstacle, goal = env.reset()
             print('safety rate: {:.4f}, distance: {:.4f}'.format(safety_rate, dist))
 
-        if vis and done:
+        if vis and np.mod(i, 20) == 0:
             ax.clear()
-            ax.set_xlim(0, 20)
-            ax.set_ylim(0, 20)
-            ax.set_zlim(0, 20)
-            ax.scatter(env.obstacle[:, 0], env.obstacle[:, 1], env.obstacle[:, 2], color='grey')
+            if env == 'city':
+                ax.set_xlim(-50, 50)
+                ax.set_ylim(-50, 50)
+                ax.set_zlim(-50, 50)
+            elif env == 'drone':
+                ax.set_xlim(0, 20)
+                ax.set_ylim(0, 20)
+                ax.set_zlim(0, 20)
+            else:
+                raise NotImplementedError
 
-        if vis and np.mod(i, 10) == 0:
             ax.scatter(state[0], state[1], state[2], color='darkred')
             ax.scatter(goal[0], goal[1], goal[2], color='darkorange')
+            ax.scatter(obstacle[:, 0], obstacle[:, 1], obstacle[:, 2], color='grey')
             if not is_safe:
                 plt.scatter(state[0], state[1], state[2], color='darkblue')
             fig.canvas.draw()
@@ -88,9 +95,11 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--env', type=str, default='drone')
+    parser.add_argument('--preplanned_traj', type=str, default=None)
     parser.add_argument('--vis', type=int, default=0)
     parser.add_argument('--param', type=str, default='./data/estimated_model_drone.npz')
     args = parser.parse_args()
 
     estimated_param = np.load(open(args.param, 'rb'))
-    main(args.vis, estimated_param)
+    main(args.env, args.preplanned_traj, args.vis, estimated_param)
