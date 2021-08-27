@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 np.set_printoptions(4)
 
 
-def main(env='drone', preplanned_traj=None, vis=True, estimated_param=None):
+def main(env='drone', preplanned_traj=None, npc_speed=1.0, vis=True, estimated_param=None):
     if env == 'drone':
         env = Drone(estimated_param=estimated_param)
     elif env == 'city':
-        env = City(estimated_param=estimated_param, preplanned_traj=preplanned_traj)
+        env = City(estimated_param=estimated_param, preplanned_traj=preplanned_traj, npc_speed=npc_speed)
     else:
         raise NotImplementedError
     
@@ -97,9 +97,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='drone')
     parser.add_argument('--preplanned_traj', type=str, default=None)
+    parser.add_argument('--npc_speed', type=float, default=0.5)
     parser.add_argument('--vis', type=int, default=0)
     parser.add_argument('--param', type=str, default='./data/estimated_model_drone.npz')
     args = parser.parse_args()
 
     estimated_param = np.load(open(args.param, 'rb'))
-    main(args.env, args.preplanned_traj, args.vis, estimated_param)
+    main(args.env, args.preplanned_traj, args.npc_speed, args.vis, estimated_param)

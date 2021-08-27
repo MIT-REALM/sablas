@@ -284,6 +284,7 @@ class City(object):
                  k_obstacle=8,
                  env_size=100,
                  num_npc=1024,
+                 npc_speed=1.0,
                  safe_dist=1,
                  perception_range=12,
                  max_steps=500, 
@@ -296,6 +297,7 @@ class City(object):
         self.k_obstacle = k_obstacle
         self.env_size = env_size
         self.num_npc = num_npc
+        self.npc_speed = npc_speed
         self.safe_dist = safe_dist
         self.perception_range = perception_range
         self.max_steps = max_steps
@@ -476,14 +478,13 @@ class City(object):
             obstacle (k_obstacle, n_state)
         """
         pos = state[:3]
-        ind_max = int(self.t / self.dt)
+        ind_max = int(self.npc_speed * self.t / self.dt)
         obstacle = []
         for i in range(1, self.num_npc):
             ind = min(ind_max, len(self.reference_traj[i]['traj']) - 1)
             obstacle_pos = self.reference_traj[i]['traj'][ind][:3]
             if np.linalg.norm(pos - obstacle_pos) < self.perception_range:
                 obstacle.append(obstacle_pos)
-        # print('{} nearby agents found'.format(len(obstacle)))
 
         # Make the number of surrounding obstacles always equal to self.k_obstacle
         if len(obstacle) < self.k_obstacle:
