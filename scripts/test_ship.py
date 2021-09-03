@@ -20,7 +20,7 @@ from matplotlib.collections import PatchCollection
 np.set_printoptions(4)
 
 
-def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True):
+def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True, goal_radius=2.0):
     if env == 'ship':
         env = Ship(max_steps=2000)
     elif env == 'river':
@@ -53,12 +53,14 @@ def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True):
     state_error = np.zeros((6,), dtype=np.float32)
     dt = 0.1
 
-    safety_rate = 0.0
-    goal_reached = 0.0
+    safety_rate = 0
+    goal_reached = 0
+    num_episodes = 0
+    traj_following_error = 0
 
     state_traj = [state.tolist()]
 
-    for i in range(config.TRAIN_STEPS):
+    for i in range(config.EVAL_STEPS):
         u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
             torch.from_numpy(state.reshape(1, 6).astype(np.float32)), 
@@ -71,6 +73,8 @@ def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True):
 
         is_safe = int(utils.is_safe(state, obstacle, n_pos=2, dang_dist=0.7))
         safety_rate = safety_rate * i / (i+1) + is_safe * 1.0 / (i+1)
+        dist = np.linalg.norm(state[:2] - goal[:2])
+        traj_following_error = traj_following_error * i / (i+1) + dist / (i+1)
 
         # error between the true current state and the state obtained from the nominal model
         # this error will be fed to the controller network in the next timestep
@@ -82,7 +86,8 @@ def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True):
         state_traj.append(state.tolist())
 
         if done:
-            dist = np.linalg.norm(state[:2] - goal[:2])
+            num_episodes = num_episodes + 1
+            goal_reached = goal_reached + 1 if dist < goal_radius else goal_reached
             state, obstacle, goal = env.reset()
             print('safety rate: {:.4f}, distance: {:.4f}'.format(safety_rate, dist))
             json.dump(state_traj, open('data/ship_trajectory.json', 'w'), indent=4)
@@ -107,6 +112,10 @@ def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True):
                 plt.scatter(state[0], state[1], color='darkblue')
             fig.canvas.draw()
             plt.pause(0.01)
+
+    goal_reaching_success_rate = goal_reached * 1.0 / num_episodes
+    print('Safety rate: {:.4f}, Goal reaching success rate: {:.4f}, Traj following error: {:.4f}'.format(
+        safety_rate, goal_reaching_success_rate, traj_following_error))
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 np.set_printoptions(4)
 
 
-def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estimated_param=None):
+def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estimated_param=None, goal_radius=2.0):
     if env_name == 'drone':
         env = Drone(estimated_param=estimated_param)
     elif env_name == 'city':
@@ -39,10 +39,12 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
     state_error = np.zeros((8,), dtype=np.float32)
     dt = 0.1
 
-    safety_rate = 0.0
-    goal_reached = 0.0
+    safety_rate = 0
+    goal_reached = 0
+    num_episodes = 0
+    traj_following_error = 0
 
-    for i in range(config.TRAIN_STEPS):
+    for i in range(config.EVAL_STEPS):
         u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
             torch.from_numpy(state.reshape(1, 8).astype(np.float32)), 
@@ -55,6 +57,8 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
 
         is_safe = int(utils.is_safe(state, obstacle, n_pos=3, dang_dist=0.6))
         safety_rate = safety_rate * i / (i+1) + is_safe * 1.0 / (i+1)
+        dist = np.linalg.norm(state[:3] - goal[:3])
+        traj_following_error = traj_following_error * i / (i+1) + dist / (i+1)
 
         # Error between the true current state and the state obtained from the nominal model
         # This error will be fed to the controller network in the next timestep
@@ -65,9 +69,11 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
         goal = goal_next
 
         if done:
-            dist = np.linalg.norm(state[:3] - goal[:3])
+            num_episodes = num_episodes + 1
+            goal_reached = goal_reached + 1 if dist < goal_radius else goal_reached
             state, obstacle, goal = env.reset()
-            print('safety rate: {:.4f}, distance: {:.4f}'.format(safety_rate, dist))
+            print('Progress: {:.2f}% safety rate: {:.4f}, distance: {:.4f}'.format(
+                100 * (i + 1.0) / config.EVAL_STEPS, safety_rate, dist))
 
         if vis and np.mod(i, 20) == 0:
             ax.clear()
@@ -89,6 +95,10 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
                 plt.scatter(state[0], state[1], state[2], color='darkblue')
             fig.canvas.draw()
             plt.pause(0.01)
+
+    goal_reaching_success_rate = goal_reached * 1.0 / num_episodes
+    print('Safety rate: {:.4f}, Goal reaching success rate: {:.4f}, Traj following error: {:.4f}'.format(
+        safety_rate, goal_reaching_success_rate, traj_following_error))
 
 
 if __name__ == '__main__':
