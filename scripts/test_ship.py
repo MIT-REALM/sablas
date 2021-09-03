@@ -4,8 +4,9 @@ sys.path.insert(1, os.path.abspath('.'))
 
 import numpy as np 
 import torch
+import json
 
-from envs.env_ship import Ship, River
+from envs.env_ship import Ship, River, Valley
 from modules.dataset import Dataset
 from modules.trainer import Trainer
 from modules.network import CBF, NNController
@@ -19,11 +20,13 @@ from matplotlib.collections import PatchCollection
 np.set_printoptions(4)
 
 
-def main(env='ship', vis=True, estimated_param=None):
+def main(env='ship', preplanned_traj=None, npc_speed=0.5, vis=True):
     if env == 'ship':
         env = Ship(max_steps=2000)
     elif env == 'river':
         env = River(max_steps=2000)
+    elif env == 'valley':
+        env = Valley(preplanned_traj=preplanned_traj)
     else:
         raise NotImplementedError
 
@@ -53,6 +56,8 @@ def main(env='ship', vis=True, estimated_param=None):
     safety_rate = 0.0
     goal_reached = 0.0
 
+    state_traj = [state.tolist()]
+
     for i in range(config.TRAIN_STEPS):
         u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
@@ -74,11 +79,14 @@ def main(env='ship', vis=True, estimated_param=None):
         state = state_next
         obstacle = obstacle_next
         goal = goal_next
+        state_traj.append(state.tolist())
 
         if done:
             dist = np.linalg.norm(state[:2] - goal[:2])
             state, obstacle, goal = env.reset()
             print('safety rate: {:.4f}, distance: {:.4f}'.format(safety_rate, dist))
+            json.dump(state_traj, open('data/ship_trajectory.json', 'w'), indent=4)
+            state_traj = [state.tolist()]
 
         if vis and done:
             ax.clear()
@@ -107,7 +115,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='ship')
     parser.add_argument('--vis', type=int, default=0)
-    parser.add_argument('--param', type=str, default='./data/estimated_model_drone.npz')
+    parser.add_argument('--preplanned_traj', type=str, default=None)
+    parser.add_argument('--npc_speed', type=float, default=0.5)
     args = parser.parse_args()
 
-    main(args.env, args.vis, estimated_param=None)
+    main(args.env, args.preplanned_traj, args.npc_speed, args.vis)

@@ -343,11 +343,6 @@ def plan(x_init, waypoints, x_bound, obstacles, bloat_factor=2., num_segs=None, 
     curr = x_init
     path = [x_init,]
     for w in waypoints:
-        #pert = 0.
-        #PWL = None
-        #while PWL is None:
-        #    PWL = plan_gurobi(obstacles, curr, w, limits=x_bound, tmax=1e4, vmax=3., bloat_factor=bloat_factor+pert, num_segs=num_segs, MIPGap=MIPGap)
-        #    pert = (np.random.rand()-0.5)*2.*1e-2
         PWL = plan_gurobi(obstacles, curr, w, limits=x_bound, tmax=1e4, vmax=3., bloat_factor=bloat_factor, num_segs=num_segs, MIPGap=MIPGap)
         if PWL is None:
             return None
