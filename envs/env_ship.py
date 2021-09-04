@@ -607,7 +607,7 @@ class Valley(object):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    env = Valley(num_npc=10, preplanned_traj='data/ship_reference_traj.json')
+    env = Valley(num_npc=16)#, preplanned_traj='data/ship_reference_traj.json')
     fig = plt.figure(figsize=(10, 10))
     plt.xlim(0, 100)
     plt.ylim(0, 100)
