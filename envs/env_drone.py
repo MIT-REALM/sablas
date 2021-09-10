@@ -95,7 +95,7 @@ class Drone(object):
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
-                 noise_std=0.1,
+                 noise_std=0.3,
                  estimated_param=None):
         assert total_obstacle >= k_obstacle
         self.dt = dt
@@ -290,8 +290,9 @@ class City(object):
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
-                 noise_std=0.1,
-                 estimated_param=None):
+                 noise_std=0.3,
+                 estimated_param=None,
+                 random_permute=True):
         assert num_npc >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
@@ -304,6 +305,7 @@ class City(object):
         self.max_speed = max_speed
         self.max_theta = max_theta
         self.noise_std = noise_std
+        self.random_permute = random_permute
 
         self.A_real = [[0, 0, 0, 1, 0, 0, 0, 0],
                        [0, 0, 0, 0, 1, 0, 0, 0],
@@ -381,7 +383,10 @@ class City(object):
 
     def reset(self):
         self.t = 0
-        random.shuffle(self.reference_traj)
+        if self.random_permute:
+            random.shuffle(self.reference_traj)
+        else:
+            print('Preserve the default order of agents.')
         self.state = np.concatenate([self.reference_traj[0]['traj'][0], np.zeros(5)])
         obstacle = self.get_obstacle(self.state)
         goal = self.get_goal(self.state)
@@ -522,6 +527,22 @@ class City(object):
         noise = np.copy(self.noise)
         noise[:3] = 0
         return noise
+
+    def get_all_agent_state(self):
+        """
+        returns:
+            all_agent_state (1 + self.num_npc, 6): state of all agents. The first one is the 
+                controlled agent and the others are NPC.
+        """
+        ind_max = int(self.npc_speed * self.t / self.dt)
+        all_agent_state = [self.state]
+        for i in range(1, self.num_npc):
+            ind = min(ind_max, len(self.reference_traj[i]['traj']) - 1)
+            obstacle_pos = self.reference_traj[i]['traj'][ind][:3]
+            obstacle_state = np.concatenate([obstacle_pos, np.zeros(5,)])
+            all_agent_state.append(obstacle_state)
+        all_agent_state = np.array(all_agent_state)
+        return all_agent_state
         
 
 if __name__ == '__main__':

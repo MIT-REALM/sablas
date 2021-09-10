@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 np.set_printoptions(4)
 
 
-def main(vis=False, estimated_param=None):
+def main(estimated_param=None):
     env = Drone(estimated_param=estimated_param)
 
     nn_controller = NNController(n_state=8, k_obstacle=8, m_control=3)
@@ -70,4 +70,4 @@ def main(vis=False, estimated_param=None):
 
 if __name__ == '__main__':
     estimated_param = np.load(open('./data/estimated_model_drone.npz', 'rb'))
-    main(False, estimated_param)
+    main(estimated_param)

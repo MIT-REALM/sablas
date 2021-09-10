@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.insert(1, os.path.abspath('.'))
 
+import json
 import numpy as np 
 import torch
 from envs.env_drone import Drone, City
@@ -13,11 +14,15 @@ import matplotlib.pyplot as plt
 np.set_printoptions(4)
 
 
-def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estimated_param=None, goal_radius=2.0):
+def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, save_traj=False, estimated_param=None, goal_radius=2.0):
     if env_name == 'drone':
         env = Drone(estimated_param=estimated_param)
     elif env_name == 'city':
-        env = City(estimated_param=estimated_param, preplanned_traj=preplanned_traj, npc_speed=npc_speed)
+        if save_traj:
+            random_permute = False
+        else:
+            random_permute = True
+        env = City(estimated_param=estimated_param, preplanned_traj=preplanned_traj, npc_speed=npc_speed, random_permute=random_permute)
     else:
         raise NotImplementedError
     
@@ -44,6 +49,9 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
     num_episodes = 0
     traj_following_error = 0
 
+    if save_traj:
+        all_agent_state_list = []
+
     for i in range(config.EVAL_STEPS):
         u_nominal = env.nominal_controller(state, goal)
         u = nn_controller(
@@ -68,6 +76,10 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
         obstacle = obstacle_next
         goal = goal_next
 
+        if save_traj:
+            all_agent_state = env.get_all_agent_state()
+            all_agent_state_list.append(all_agent_state.tolist())
+
         if done:
             num_episodes = num_episodes + 1
             goal_reached = goal_reached + 1 if dist < goal_radius else goal_reached
@@ -75,12 +87,17 @@ def main(env_name='drone', preplanned_traj=None, npc_speed=0.5, vis=True, estima
             print('Progress: {:.2f}% safety rate: {:.4f}, distance: {:.4f}'.format(
                 100 * (i + 1.0) / config.EVAL_STEPS, safety_rate, dist))
 
+            if save_traj:
+                json.dump(all_agent_state_list, open('drone_trajectory.json', 'w'), indent=4)
+                print('Trajectory saved to drone_trajectory.json. Finished.')
+                break
+
         if vis and np.mod(i, 20) == 0:
             ax.clear()
             if env_name == 'city':
-                ax.set_xlim(-50, 50)
-                ax.set_ylim(-50, 50)
-                ax.set_zlim(-50, 50)
+                ax.set_xlim(state[0] - 5, state[0] + 5)
+                ax.set_ylim(state[1] - 5, state[1] + 5)
+                ax.set_zlim(state[2] - 5, state[2] + 5)
             elif env_name == 'drone':
                 ax.set_xlim(0, 20)
                 ax.set_ylim(0, 20)
@@ -109,8 +126,9 @@ if __name__ == '__main__':
     parser.add_argument('--preplanned_traj', type=str, default=None)
     parser.add_argument('--npc_speed', type=float, default=0.5)
     parser.add_argument('--vis', type=int, default=0)
+    parser.add_argument('--save_traj', type=int, default=0)
     parser.add_argument('--param', type=str, default='./data/estimated_model_drone.npz')
     args = parser.parse_args()
 
     estimated_param = np.load(open(args.param, 'rb'))
-    main(args.env, args.preplanned_traj, args.npc_speed, args.vis, estimated_param)
+    main(args.env, args.preplanned_traj, args.npc_speed, args.vis, args.save_traj, estimated_param)

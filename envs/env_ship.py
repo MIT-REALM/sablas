@@ -79,7 +79,7 @@ class Ship(object):
                  env_size=20, 
                  safe_dist=1, 
                  max_steps=2000, 
-                 max_speed=np.array([0.3, 0.3, 1.0]),
+                 max_speed=np.array([0.3, 0.3, 0.5]),
                  gpu_id=-1,
                  estimated_param=None
                  ):
@@ -92,8 +92,8 @@ class Ship(object):
         self.max_steps = max_steps
         self.max_speed = max_speed
 
-        self.B_real = np.array([[1, 0], [0, 0.1], [0, 0.5]])
-        self.B_nominal = np.array([[1, 0], [0, 0.1], [0, 0.5]])
+        self.B_real = np.array([[1, 0], [0, 0.01], [0, 0.5]])
+        self.B_nominal = np.array([[1, 0], [0, 0.01], [0, 0.5]])
 
         # if gpu_id >= 0, we use gpu in self.nominal_dynamics_torch
         self.gpu_id = gpu_id
@@ -295,7 +295,7 @@ class River(Ship):
                  river_width=2.0,
                  safe_dist=1, 
                  max_steps=2000, 
-                 max_speed=np.array([0.3, 0.3, 1.0]),
+                 max_speed=np.array([0.3, 0.3, 0.5]),
                  gpu_id=-1,
                  estimated_param=None
                  ):
@@ -346,9 +346,10 @@ class Valley(object):
                  npc_speed=1.0,
                  safe_dist=1,
                  perception_range=12,
-                 max_steps=2000, 
-                 max_speed=np.array([0.3, 0.3, 1.0]),
-                 estimated_param=None):
+                 max_steps=4000, 
+                 max_speed=np.array([0.3, 0.3, 0.5]),
+                 estimated_param=None,
+                 random_permute=True):
         assert num_npc >= k_obstacle
         self.dt = dt
         self.k_obstacle = k_obstacle
@@ -359,9 +360,10 @@ class Valley(object):
         self.perception_range = perception_range
         self.max_steps = max_steps
         self.max_speed = max_speed
+        self.random_permute = random_permute
 
-        self.B_real = np.array([[1, 0], [0, 0.1], [0, 0.5]])
-        self.B_nominal = np.array([[1, 0], [0, 0.1], [0, 0.5]])
+        self.B_real = np.array([[1, 0], [0, 0.01], [0, 0.5]])
+        self.B_nominal = np.array([[1, 0], [0, 0.01], [0, 0.5]])
 
         # prepare the estimated dynamics
         if estimated_param is not None:
@@ -407,7 +409,11 @@ class Valley(object):
 
     def reset(self):
         self.t = 0
-        random.shuffle(self.reference_traj)
+        self.num_steps = 0
+        if self.random_permute:
+            random.shuffle(self.reference_traj)
+        else:
+            print('Preserve the default order of agents.')
         self.state = np.concatenate([self.reference_traj[0]['traj'][0], np.zeros(4)])
         obstacle = self.get_obstacle(self.state)
         goal = self.get_goal(self.state)
@@ -425,11 +431,9 @@ class Valley(object):
         obstacle = self.get_obstacle(state)
         goal = self.get_goal(state)
         self.state = state
-        done = int(self.t / self.dt) == len(self.reference_traj[0]['traj'])
-        if np.linalg.norm(goal[:2] - state[:2]) > 20:
-            # If too faraway from the reference trajectory, the tracking fails
-            done = True
+        done = np.linalg.norm(goal[:2] - state[:2]) > 20 or self.num_steps == len(self.reference_traj[0]['traj'])
         self.t = min(self.t + self.dt, len(self.reference_traj[0]['traj']) * self.dt)
+        self.num_steps = self.num_steps + 1
         return state, state_nominal, obstacle, goal, done
 
     def uncertain_dynamics(self, state, u):
@@ -567,7 +571,7 @@ class Valley(object):
         pos = state[:2]
         ind_max = int(self.npc_speed * self.t / self.dt)
         obstacle = []
-        for i in range(1, self.num_npc):
+        for i in range(1, self.num_npc + 1):
             ind = min(ind_max, len(self.reference_traj[i]['traj']) - 1)
             obstacle_pos = self.reference_traj[i]['traj'][ind][:2]
             if np.linalg.norm(pos - obstacle_pos) < self.perception_range:
@@ -576,7 +580,7 @@ class Valley(object):
         # Make the number of surrounding obstacles always equal to self.k_obstacle
         if len(obstacle) < self.k_obstacle:
             if len(obstacle) == 0:
-                obstacle.append(state[:2] + np.array([10, 10]))
+                obstacle.append(state[:2] + np.array([8, 8]))
             while len(obstacle) < self.k_obstacle:
                 obstacle.append(obstacle[-1])
         elif len(obstacle) > self.k_obstacle:
@@ -603,11 +607,32 @@ class Valley(object):
         goal = np.concatenate([goal, np.zeros((4,))])
         return goal
 
+    def get_all_agent_state(self):
+        """
+        returns:
+            all_agent_state (1 + self.num_npc, 6): state of all agents. The first one is the 
+                controlled agent and the others are NPC.
+        """
+        ind_max = int(self.npc_speed * self.t / self.dt)
+        all_agent_state = [self.state]
+        for i in range(1, self.num_npc):
+            ind = min(ind_max, len(self.reference_traj[i]['traj']) - 1)
+            obstacle_pos = self.reference_traj[i]['traj'][ind][:2]
+            if ind == 0:
+                dxdy = self.reference_traj[i]['traj'][ind+1][:2] - obstacle_pos
+            else:
+                dxdy = obstacle_pos - self.reference_traj[i]['traj'][ind-1][:2]
+            theta = np.arctan2(dxdy[1], dxdy[0])
+            obstacle_state = np.concatenate([obstacle_pos, [theta], [0, 0, 0]])
+            all_agent_state.append(obstacle_state)
+        all_agent_state = np.array(all_agent_state)
+        return all_agent_state
+
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    env = Valley(num_npc=16)#, preplanned_traj='data/ship_reference_traj.json')
+    env = Valley(num_npc=64)#, preplanned_traj='data/ship_reference_traj.json')
     fig = plt.figure(figsize=(10, 10))
     plt.xlim(0, 100)
     plt.ylim(0, 100)
