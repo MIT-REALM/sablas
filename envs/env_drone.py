@@ -95,7 +95,7 @@ class Drone(object):
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
-                 noise_std=0.3,
+                 noise_std=0.1,
                  estimated_param=None):
         assert total_obstacle >= k_obstacle
         self.dt = dt
@@ -290,7 +290,7 @@ class City(object):
                  max_steps=500, 
                  max_speed=0.5, 
                  max_theta=np.pi/6,
-                 noise_std=0.3,
+                 noise_std=0.1,
                  estimated_param=None,
                  random_permute=True):
         assert num_npc >= k_obstacle
